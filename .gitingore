@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+
+# Virtual environment
+.venv/
+
+# VS Code settings
+.vscode/
+
+# Application files
+.colors.txt
+.save.json
+settings.json
+
+# Development and testing
+packer.py
+test.py
+
+# Archives
+archive/
