@@ -3,27 +3,33 @@ from threading import Thread
 from queue import Queue
 from random import randint
 from sys import path
-from time import sleep
+from pprint import pprint
 
 path.append(str(Path('.').absolute()))
 
 from main import main
 
-info_queues = [Queue() for _ in range(10)]
+SNAKE_INDEX = 0 # That's the index of the snake being controlled rn
+SNAKES_COUNT = 10
+
+info_queues = [Queue() for _ in range(SNAKES_COUNT)]
 command_queue = Queue()
 
-Thread(target=main, daemon=True, args=[info_queues, command_queue]).start()
+Thread(target=main, args=[info_queues, command_queue]).start()
+
+info_queue = info_queues[SNAKE_INDEX]
+settings = info_queue.get() # First response contains all of the running sessions settings
+print('Settings:\n')
+pprint(settings)
 
 # Bot's logic
 
-snake_index = 1 # That's the index of the snake being controlled rn
-info_queue = info_queues[snake_index]
 game_running = True
 while game_running:
-    info = info_queue.get()
-    print(info) # gets the location of the snake and food's position
-    # if info == -1:
-    #     game_running = False
-    for i in range(10):
-        command_queue.put([i, randint(0, 3)]) # Chooses a random move
-    sleep(0.001)
+    info = info_queue.get() # gets the location of the snake and food's position as well occasional codes for the game / bot state
+    if info == -1 or info == -2: # -2 is the code that means the snake crashed. and -1 means the game has been left
+        game_running = False
+        print('\nQuit game!' if info == -1 else '\nSnake crashed!')
+    else:
+        print(info)
+    command_queue.put([SNAKE_INDEX, randint(0, 3)]) # Chooses a random move

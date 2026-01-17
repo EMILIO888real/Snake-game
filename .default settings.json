@@ -19,13 +19,14 @@
     "music name": "random",
     "fullscreen": false,
     "snakes count": 1,
-
     "grid lines": true,
-    "grid lines color": [255, 255, 255],
+    "grid lines color": [40, 40, 40],
     "cycle food colors": true,
     "last piece becomes food color": true,
     "food starting color": 1,
     "snake starting color": 0,
     "playlist": true,
-    "sequential playlist": false
+    "sequential playlist": false,
+    "careful between snakes collision detection": false,
+    "borderless": false
 }

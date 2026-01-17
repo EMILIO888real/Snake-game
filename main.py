@@ -5,7 +5,7 @@ from itertools import cycle
 from pathlib import Path
 from json import load, dump
 from queue import Queue
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Any
 from sys import path
 from time import sleep
 
@@ -38,13 +38,10 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         screen_size: list[int] = settings['screen size'] # Resolution should be able to cleanly divisible by the sector size, x to x and y to y. (x, y)
     background_color: list[int] = settings['background color']
     grid_lines_color: list[int] = settings['grid lines color']
-    points_color: list[int] = settings['points color']
-    points_text: str = settings['points text']
     fps: int = settings['fps']
 
     sector_size: list[int] = settings['sector size'] # Needs to be able to cleanly divisible by steps
     step: int = settings['step'] # Needs to be able to cleanly divisible by sector size, both x and y. If you change this while the script is running be sure to recalculate steps
-    ups: int = settings['ups']
     snake_bot_delay: float = settings['snake bot delay']
 
     portals: bool = settings['portals']
@@ -52,18 +49,36 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     eating_speed_up_amount: int = settings['eating speed you up amount']
     snakes_count: int = settings['snakes count']
 
+
     # Handles screen and other gui elements
 
     pygame.init()
+
+    if settings['borderless']:
+        flag = pygame.NOFRAME
+    else:
+        flag = 0
+
     if settings['fullscreen']:
-        screen = pygame.display.set_mode(flags=pygame.FULLSCREEN)
+        screen = pygame.display.set_mode(flags=pygame.FULLSCREEN | flag)
         screen_size = screen.get_size()
     else:
-        screen = pygame.display.set_mode(screen_size)
+        screen = pygame.display.set_mode(screen_size, flag)
+
     pygame.display.set_caption(settings['window name'])
-    ups_clock = pygame.time.Clock()
+    ups_clocks = [pygame.time.Clock() for _ in range(snakes_count)]
+    snakes_ups = [settings['ups'] for _ in range(snakes_count)]
     fps_clock = pygame.time.Clock()
-    font = pygame.font.Font(settings['font family'], settings['font size'])
+
+    FONT_SETTINGS_NAMES = ['quit', 'lost', 'end screen points', 'end screen high score', 'points', 'start menu', 'paused'] # Contains a list of names for text font and font sizes
+    fonts = {}
+    for font_setting in FONT_SETTINGS_NAMES:
+        font_name = settings[f'{font_setting} text font']
+        font_size = settings[f'{font_setting} text font size']
+        font_bold = settings[f'{font_setting} text bold']
+        font_italic = settings[f'{font_setting} text italic']
+        fonts[font_setting] = (pygame.font.SysFont(font_name if font_name != None else settings['font family'], font_size if font_size != None else settings['font size'],
+                                                   font_bold if font_bold != None else settings['font bold'], font_italic if font_italic != None else settings['font italic']))
 
     # Handles all audio (music and sfx)
 
@@ -127,8 +142,26 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             colors.append(next(main_colors))
 
         return colors
+
+    def format_text(text: str, index: int, var: Any) -> str:
+        '''
+        formats text by inserting a variable at a specific index
+        
+        :param text: text to format
+        :type text: str
+        :param index: index to insert the variable at
+        :type index: int
+        :param var: variable to insert
+        :type var: Any
+        :return: formatted text
+        :rtype: str
+        '''
+        return f'{text[0:index]}{var}{text[index:]}'
     
-    def create_text_blit_(text: str, color: Sequence[int], position: Sequence[int]) -> pygame.Surface:
+    def noop():
+        pass
+
+    def create_text_blit_(text: str, color: Sequence[int], position: Sequence[int], font: str) -> pygame.Surface:
         '''
         Wrapper for create_text_blit function.
         
@@ -138,8 +171,12 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         :type color: Sequence[int, int, int]
         :param position: position of the text on the screen
         :type position: Sequence[int, int]
+        :param font: font to use
+        :type font: str
+        :return: rendered text surface and its rect
+        :rtype: pygame.Surface
         '''
-        return create_text_blit(text, color, position, screen_size, font)
+        return create_text_blit(text, color, position, screen_size, fonts[font])
 
     if not Path('colors.txt').exists():
         color_generator(settings['color pattern length'], True, settings['color scheme'], settings['color style'])
@@ -203,9 +240,10 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     alive = [True for _ in range(snakes_count)]
     moves = [[Event(), Event(), Event(), Event()] for _ in range(snakes_count)]
     pause = False
-    pressed_pause = False
+    draw_grid = True
     start_up = Event()
     steps = sector_size[0] // step
+    steps_ratio = snakes_ups[0] / step
 
 
     actions = [[] for _ in range(snakes_count)] # 0 -> up, 1 -> left, 2 -> down, 3 -> right
@@ -225,8 +263,45 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                 one_of_directions.clear()
 
     def key_input_for():
-        ''' handles key inputs for quitting the game '''
+        '''
+        handles key inputs using a for loop
+        '''
 
+        nonlocal pause, paused_drawer, draw_grid, grid_drawer
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                for i in range(len(alive)):
+                    alive[i] = False
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    for i in range(len(alive)):
+                        alive[i] = False
+                elif event.key == pygame.K_w:
+                    if actions[0][0] != 2:
+                        move(moves[0][0])
+                elif event.key == pygame.K_a:
+                    if actions[0][0] != 3:
+                        move(moves[0][1])
+                elif event.key == pygame.K_s:
+                    if actions[0][0] != 0:
+                        move(moves[0][2])
+                elif event.key == pygame.K_d:
+                    if actions[0][0] != 1:
+                        move(moves[0][3])
+
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_p:
+                    pause = not pause
+                    paused_drawer = draw_paused if pause else noop
+                elif event.key == pygame.K_g:
+                    draw_grid = not draw_grid
+                    grid_drawer = draw_grid_lines if draw_grid else noop
+
+    start_menu_text = create_text_blit_(settings['start menu text'], settings['start menu text color'], settings['start menu text position'], 'start menu')
+
+    while actions[0] == [] and any(alive):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 for i in range(len(alive)):
@@ -235,11 +310,6 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                 if event.key == pygame.K_ESCAPE:
                     for i in range(len(alive)):
                         alive[i] = False
-
-    start_menu_text = create_text_blit_(settings['start menu text'], settings['start menu text color'], settings['start menu text position'])
-
-    while actions[0] == [] and any(alive):
-        key_input_for()
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_w]:
@@ -277,17 +347,23 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         :type snake_index: int
         '''
 
+        if snake_index == snakes_count - 1: # Last snake begins all of the snakes running
+            start_up.set()
+
         start_up.wait()
 
         # should be here, because the _movement function is one iteration of a loop, that keeps getting repeated
         # All of these sectors are outside the screen
 
+        increment = 0
         two_sectors_to_right = screen_size[0] + sector_size[0]
         two_sectors_to_down = screen_size[1] + sector_size[1]
         two_sectors_to_up = -sector_size[1]*2
         two_sectors_to_left = -sector_size[0]*2
         head: pygame.Rect = snakes[snake_index][0]
         snake = snakes[snake_index]
+        ups = snakes_ups[snake_index]
+        ups_clock = ups_clocks[snake_index]
 
         def _movement():
             '''
@@ -300,7 +376,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             6. Repeat
             '''
 
-            nonlocal food, points, ups
+            nonlocal food, points, ups, step, steps, increment, points_blittable
 
             # Collision detection | MOVE THIS ELSEWHERE, another thread perhaps, could try this again, but had some problems with thread synchronization.
 
@@ -311,6 +387,8 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                 if head.colliderect(snake[i]):
                     crashes[snake_index] = True
                     alive[snake_index] = False
+                    if info_queue is not None:
+                        info_queue.put(-2)
 
             if head.colliderect(food):
                 if sfx and audio:
@@ -344,8 +422,17 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                 snake.append(body)
                 actions[snake_index].append(actions[snake_index][-1])
                 points += 1
+                points_blittable = (points_font.render(format_text(settings['points text'], settings['points text variable index'], points), True, settings['points text color']), points_display_cords)
                 if eating_speed_up:
                     ups += eating_speed_up_amount
+                    if settings['increase jumps with increasing ups']:
+                        if ups % steps_ratio == 0:
+                            increment += 1
+                            if sector_size[0] % (step + increment) == 0:
+                                ups -= steps_ratio * increment
+                                step += increment
+                                steps = sector_size[0] // step
+                                increment = 0
 
             # Movement
 
@@ -379,7 +466,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             for i in range(len(snake)):
 
                 piece = snake[i]
-                # Are necessary for correct calculations
+                # Are necessary for correct calculations, saves previous state
                 piece_bottomright = piece.bottomright
                 piece_topleft = piece.topleft
 
@@ -420,24 +507,29 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         if info_queues is not None:
             info_queue = info_queues[snake_index]
+            info_queue.put(settings)
         else:
             info_queue = None
 
-        snakes_to_check = [range(0, snake_index), range(snake_index + 1, snakes_count)]
 
-        if info_queue is None:
-            while alive[snake_index]:
-                _movement()
+        snakes_to_check = [range(0, snake_index), range(snake_index + 1, snakes_count)]
+        sector_portion_x = sector_size[0] * settings['careful between snakes collision x portion']
+        sector_portion_y = sector_size[1] * settings['careful between snakes collision y portion']
+
+        if settings['careful between snakes collision detection']:
+            careful_collision_detection = lambda: abs(piece.topleft[0] - head.topleft[0]) < sector_portion_x and abs(piece.topleft[1] - head.topleft[1]) < sector_portion_y # pyright: ignore[reportUndefinedVariable] # Maybe optimize this calculation to be faster
         else:
-            if settings['collision between snakes']:
-                while alive[snake_index]:
-                    _movement()
-                    for snake_range in snakes_to_check:
-                        for snake_i in snake_range:
-                            if alive[snake_i]:
-                                for piece_index in range(len(snakes[snake_i])):
-                                    piece = snakes[snake_i][piece_index]
-                                    if head.colliderect(piece):
+            careful_collision_detection = lambda: True
+
+        if settings['collision between snakes']:
+            def between_snakes_collision():
+                for snake_range in snakes_to_check:
+                    for snake_i in snake_range:
+                        if alive[snake_i]:
+                            for piece_index in range(len(snakes[snake_i])):
+                                piece: pygame.Rect = snakes[snake_i][piece_index]
+                                if head.colliderect(piece):
+                                    if careful_collision_detection():
                                         if piece_index == 0:
                                             alive[snake_i] = False
                                             crashes[snake_i] = True
@@ -445,13 +537,21 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                                         info_queue.put(-2)
                                         alive[snake_index] = False
                                         crashes[snake_index] = True
-                    info_queue.put({'snake position': snake, 'food position': food})
-                    sleep(snake_bot_delay)
-            else:
-                while alive[snake_index]:
-                    _movement()
-                    info_queue.put({'snake position': snake, 'food position': food})
-                    sleep(snake_bot_delay)
+        else:
+            between_snakes_collision = noop
+
+        if info_queue is not None:
+            def send_and_check_collision():
+                between_snakes_collision()
+                info_queue.put({'snake position': snake, 'food position': food})
+                sleep(snake_bot_delay)
+        else:
+            send_and_check_collision = noop
+
+        while alive[snake_index]:
+            _movement()
+            send_and_check_collision()
+
 
     if commands_queue is not None:
         def receiver():
@@ -494,8 +594,6 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     for snake_index in range(snakes_count):
         Thread(target=movement, daemon=True, args=[snake_index]).start()
-    else:
-        start_up.set()
 
     if audio and settings['music']:
         if settings['playlist']:
@@ -505,33 +603,16 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     def key_inputs():
         ''' handles key inputs for movement and pausing the game '''
-
-        nonlocal pressed_pause, pause
-
         key_input_for()
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_w] and actions[0][0] != 2:
-            move(moves[0][0])
-        if keys[pygame.K_a] and actions[0][0] != 3:
-            move(moves[0][1])
-        if keys[pygame.K_s] and actions[0][0] != 0:
-            move(moves[0][2])
-        if keys[pygame.K_d] and actions[0][0] != 1:
-            move(moves[0][3])
-        if keys[pygame.K_p]:
-            if pause:
-                pressed_pause = False
-            else:
-                pressed_pause = True
-        else:
-            if pressed_pause:
-                pause = True
-            else:
-                pause = False
+        # keys = pygame.key.get_pressed() # For when I want to add button presses that aren't toggles
 
     points = 0
-    points_display_cords = font.render(points_text.replace('POINTS', str(points)), True, points_color).get_rect(center=(screen_size[0] * settings['points text position'][0], screen_size[1] * settings['points text position'][1]))
+    points_font = fonts['points']
+    formatted_points_text = format_text(settings['points text'], settings['points text variable index'], points)
+    points_display_cords = points_font.render(formatted_points_text, True, settings['points text color']).get_rect(center=(screen_size[0] * settings['points text position'][0], screen_size[1] * settings['points text position'][1]))
+    points_blittable = (points_font.render(formatted_points_text, True, settings['points text color']), points_display_cords)
+    paused_blittable = create_text_blit_(settings['paused text'], settings['paused text color'], settings['paused text position'], 'paused')
 
     def drawing():
         '''
@@ -549,25 +630,29 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     body = snake[body_i]
                     pygame.draw.rect(screen, colors[snake_index][body_i], body)
         pygame.draw.rect(screen, colors[-1][0], food, 10)
-        screen.blit(font.render(points_text.replace('POINTS', str(points)), True, points_color), points_display_cords)
+        screen.blit(*points_blittable)
+
+    def draw_grid_lines():
+        for sector in sectors:
+            pygame.draw.rect(screen, grid_lines_color, (*sector, sector_size[0], sector_size[1]), 1)
+
+    grid_drawer = draw_grid_lines if settings['grid lines'] else noop
+
+    def draw_paused():
+        screen.blit(*paused_blittable)
+
+    paused_drawer = draw_paused if pause else noop
+
+    # GUI main loop
+
+    while any(alive):
+        key_inputs()
+        screen.fill(background_color)
+        grid_drawer()
+        drawing()
+        paused_drawer()
         pygame.display.flip()
-
-    if settings['grid lines']:
-        while any(alive):
-            key_inputs()
-
-            screen.fill(background_color)
-            for sector in sectors:
-                pygame.draw.rect(screen, grid_lines_color, (*sector, sector_size[0], sector_size[1]), 1)
-            drawing()
-            fps_clock.tick(fps)
-    else:
-        while any(alive):
-            key_inputs()
-
-            screen.fill(background_color)
-            drawing()
-            fps_clock.tick(fps)
+        fps_clock.tick(fps)
 
 
     if not Path('.save.json').exists():
@@ -590,13 +675,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         with open('.save.json', 'w') as f:
             dump(save, f)
 
-    texts = []
-    text_setting_keys = ['bye text position', 'end screen points text position', 'end screen high score text position']
-    text_sentences = [settings['lost text'] if all(crashes) else settings['quit text'], settings['end screen points text'].replace('POINTS', str(points)), settings['end screen high score text'].replace('HIGHSCORE', str(user_save['high score']))]
-    text_colors = [settings['lost color'] if all(crashes) else settings['quit color'], settings['end screen points color'], settings['end screen high score color']]
+    text_setting_keys = ['bye', 'end screen points', 'end screen high score']
+    text_sentences = [settings['lost text'] if all(crashes) else settings['quit text'], format_text(settings['end screen points text'], settings['end screen points text variable index'], points), format_text(settings['end screen high score text'], settings['end screen high score text variable index'], user_save['high score'])]
+    text_colors = [settings['lost text color'] if all(crashes) else settings['quit text color'], settings['end screen points text color'], settings['end screen high score text color']]
 
+    texts = []
     for i in range(len(text_setting_keys)):
-        texts.append(create_text_blit_(text_sentences[i], text_colors[i], settings[text_setting_keys[i]]))
+        texts.append(create_text_blit_(text_sentences[i], text_colors[i], settings[f'{text_setting_keys[i]} text position'], text_setting_keys[i] if i != 0 else ('lost' if all(crashes) else 'quit')))
 
     if audio:
         if settings['music']:
