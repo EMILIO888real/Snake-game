@@ -1,0 +1,11 @@
+{
+    "presentation mode": true,
+    "bot runs": 6,
+    "sequentially": true,
+    "write settings": false,
+    "snake index": 0,
+    "snake count": 1,
+    "verbose": true,
+    "write runs": false,
+    "write play times": false
+}

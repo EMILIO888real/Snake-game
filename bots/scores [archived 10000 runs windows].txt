@@ -1,0 +1,68 @@
+
+Total time: 0:05:09.003233
+Average time per game: 0.03 seconds
+
+Some statistics:
+	Average score: 20.01
+	Lowest score: 4 [randomized]
+	Highest score: 53 [simple_bot]
+	All together score: 200121
+
+	Total runs:
+		vector_based: 1645
+		simple_bot: 1714
+		greedy: 1630
+		randomized: 1618
+		greedy_safe_move: 1705
+		combined_algorithm: 1688
+
+	vector_based:
+		Highest score: 48
+		Lowest score: 6
+		Average score: 15.68
+
+	simple_bot:
+		Highest score: 53
+		Lowest score: 6
+		Average score: 26.08
+
+	greedy:
+		Highest score: 45
+		Lowest score: 6
+		Average score: 22.76
+
+	randomized:
+		Highest score: 34
+		Lowest score: 4
+		Average score: 11.17
+
+	greedy_safe_move:
+		Highest score: 46
+		Lowest score: 6
+		Average score: 21.87
+
+	combined_algorithm:
+		Highest score: 46
+		Lowest score: 5
+		Average score: 22.02
+
+	Best algorithm: simple_bot [highest of all scores]
+	Most consistent algorithm: simple_bot [highest average score]
+	Worst algorithm: randomized [lowest of all scores]
+	Least consistent algorithm: randomized [lowest average score]
+
+	Algorithm rankings [highest score]:
+		simple_bot: 53
+		vector_based: 48
+		greedy_safe_move: 46
+		combined_algorithm: 46
+		greedy: 45
+		randomized: 34
+
+	Algorithm rankings [average score]:
+		simple_bot: 26.08
+		greedy: 22.76
+		combined_algorithm: 22.02
+		greedy_safe_move: 21.87
+		vector_based: 15.68
+		randomized: 11.17
