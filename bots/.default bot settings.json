@@ -7,5 +7,6 @@
     "snake count": 1,
     "verbose": true,
     "write runs": false,
-    "write play times": false
+    "write play times": false,
+    "ups": 800
 }

@@ -65,7 +65,7 @@ recommended_settings = {'ups': 'max speed', # Makes the game run fast
 highly_recommended_settings = {'skip start menu': True, # Skip so the user doesn't have to interact
                                'skip end screen': True, # Skip so the user doesn't have to interact
                                'name': 'simple*bot!', # User profile set to a bot
-                               'ups': 1000, # Makes the game run fast, but not too fast so we can still see what's going on
+                               'ups': bot_settings['ups'], # Makes the game run fast, but not too fast so we can still see what's going on
                                'audio': False, # Turns off audio
                                'sector size': [20, 20], # Makes the scaling much smaller for a bigger field, so there is more space for the snake to move around and the bot can perform better. Also makes it easier to visually track the snake's movement.
                                'show time': False, # Hides the time display, since it can be distracting and isn't really needed when the game is running at a high speed.
@@ -90,8 +90,8 @@ def run_bot():
 
     while True:
         info = info_queue.get() # gets the location of the snake and food's position as well occasional codes for the game / bot state
-
-        if info == -1 or info == -2 or info == -3: # Status codes for the game state. -1 means the game was quit, -2 means the game process crashed, -3 means the game encountered an error. In all of these cases we want to stop the bot and relaunch the game.
+        
+        if type(info) != dict: # Status codes for the game state. -1 means the game was quit, -2 means the game process crashed, -3 means the game encountered an error. In all of these cases we want to stop the bot and relaunch the game.
             if verbose:
                 match info:
                     case -1:

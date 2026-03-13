@@ -1505,12 +1505,11 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     for i in range(len(alive)):
-                        alive[i] = False
+                        exit()
                 if event.type == pygame.KEYDOWN:
                     if event.key == quit_key:
                         for i in range(len(alive)):
-                            alive[i] = False
-
+                            exit()
             keys = pygame.key.get_pressed()
             if keys[pygame.K_w]:
                 for snake_index in range(snakes_count):
@@ -1733,7 +1732,6 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         log_action('game ended', 'INFO')
 
 
-
     # Remake this to use some central function.
 
     TEXT_SETTING_KEYS = ['bye', 'end screen high score', 'end screen best rating', 'end screen points', 'end screen rating']
@@ -1798,18 +1796,15 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     game_stats_sender = noop if info_queues is None else send_game_stats
 
-    # Just in case we aren't using soft restart, when running our bot.
-    game_stats_sender()
-
     if settings['soft restart']:
         while not keep_restarting.is_set():
+            game_stats_sender()
             generate_game_values()
             skip_start_menu()
             launch_game_threads()
             gui_loop_handler()
             game_left_cleanup()
             save_info()
-            game_stats_sender()
 
             
     exiting_game.set() # So that any random errors, don't appear.
@@ -1817,10 +1812,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     
     # Quits all the threads. These needs to be after the pygame quits
 
-    if info_queues is not None:
-        for info_queue in info_queues:
-            info_queue.put(-1)
+    if not any(crashes):
+        if info_queues is not None:
+            for info_queue in info_queues:
+                info_queue.put(-1)
 
+    # Just in case we aren't using soft restart, when running our bot.
+    game_stats_sender()
 
     if log:
         log_action('shutdown all pygame subprocesses', 'INFO')

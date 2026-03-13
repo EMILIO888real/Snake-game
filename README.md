@@ -101,7 +101,7 @@ Note: there is an example bot included in the `bots` folder named `example bot.p
 ## How to use the queue system
 The game uses a queue-based system for communication between the main game loop and bots:
 
-- **Info Queue** (game → bot): Sends snake and food positions as `pygame.Rect` objects, plus all game settings at startup. Also sends status codes: `-1` (user quit), `-2` (snake crashed), `-3` (game error).
+- **Info Queue** (game → bot): Sends snake and food positions as `pygame.Rect` objects, plus all game settings at startup. Also sends status codes: `-1` (user quit), `-2` (snake crashed), `-3` (game error). After the code it also sends basic stats like points and playtime time and rating for that game specifically.
 - **Commands Queue** (bot → game): Receives movement commands: `0` (up), `1` (left), `2` (down), `3` (right), `4` (quit), `5` (pause all snakes), `6` (exits soft restarting mode).
 
 Your bot reads the game state from the info queue and sends movement commands through the commands queue.
@@ -186,7 +186,27 @@ Documentation for config settings is available in the config.md file.
 
 > **These constraints are critical for proper game functionality. Incorrect values may cause visual glitches or movement issues.**
 
+## Simple bot
+There is a simple bot included in the `bots` folder named `simple bot.py`, it is a simple algorithm launcher and tester, where you can see and check out how to utilize the queue system, and also test out some simple algorithms, relies on the algorithms in the `algorithms.py` file. You can also use it to test out your own algorithms, by importing them into the `algorithms.py` file and then launching them from the `simple bot.py` file. It also comes with settings that you can change to change how the bot performs.
+
+### Simple bot settings
+- **presentation mode**: Enable/disable presentation mode for visual display (default: `true`)
+- **bot runs**: Number of bot runs to execute (default: `6`)
+- **sequentially**: Run algorithms sequentially or randomly (default: `true`)
+- **write settings**: Save bot settings to file (default: `false`)
+- **snake index**: Index of the snake controlled by the bot (default: `0`)
+- **snake count**: Number of snakes for bot testing (default: `1`)
+- **verbose**: Enable/disable verbose output during bot runs (default: `true`)
+- **write runs**: Save each run's basic stats (default: `false`)
+- **write play times**: Save each run's play time (default: `false`)
+- **ups**: Updates per second for the game itself (default: `800`)
+
+### Important notes about the simple bot settings
+- **If you are experiencing problems with the algorithms they seem to do very badly, it's possible that the game is running to quickly for the bot, in that case decrease the UPS of the game via the `UPS` setting, or you can also enable the `wait for bot` setting.**
+
 ## In future updates
+1. Bot logic was off, for some reason?
+1. Start menu freezing the game when trying to quit.
 1. Add a setting to the `simple bot` to be able to run multiple snake games at the same time.
 1. Add a version blit to the start menu.
 1. Change the writing system to use atomic writes. Create this function and add it to `et`
@@ -240,6 +260,8 @@ Documentation for config settings is available in the config.md file.
 ## Changelog
 - v0.0.0-Beta.1: Initial release with basic snake gameplay and bot support. Date: 2026-01-03
 - v0.0.0-Beta.1.9 Right before second beta, almost all of the features, just some changes from the survey will differentiate Beta.2 and Beta.1.9. Date: 2026-01-17
+- v0.24.1-Build.1 A major huge update that adds a ton of features. Date: 2026-03-13
+- v0.24.2-Build.0 Bug fixes related to windows users.
 
 ## Feedback and Suggestions
 Feel free to share your thoughts, report bugs, or suggest new features by messaging me on discord: EMILIO#0663.
