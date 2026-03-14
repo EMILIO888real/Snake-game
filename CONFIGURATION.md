@@ -1,4 +1,4 @@
-## Configuration Options
+# Configuration
 
 The game can be customized through a variety of configuration options that control aspects such as gameplay mechanics, visual presentation, audio settings, and performance monitoring. Below is a comprehensive list of these options along with their default values:
 

@@ -63,8 +63,9 @@ from typing import Any, Callable, Optional
 from pathlib import Path
 from json import dump, load
 from datetime import datetime
-from shutil import copyfile, ignore_patterns, which, copy2, copy, copytree
+from shutil import ignore_patterns, which, copy2, copytree
 from subprocess import Popen
+from requests import get, post
 
 def hide_cursor() -> None:
     '''Hides the cursor
@@ -1214,6 +1215,34 @@ def safe_replace(src: str | Path, dst: str | Path) -> None:
             return
         except PermissionError:
             pass
+
+def upload_for_sharing(file_path: str | Path, api_token: str, folder_id: str):
+    '''
+    Uploads a file to gofile.io and returns the response as a dictionary.
+
+    :param file_path: The path to the file to be uploaded.
+    :type file_path: str | Path
+    :param api_token: The API token for authentication.
+    :type api_token: str
+    :return: The response from the server as a dictionary, or an error message if the response is not JSON.
+    :rtype: dict | str
+    '''
+    # Step 1: get server
+
+    server_resp = get('https://api.gofile.io/servers')
+    server = server_resp.json()['data']['servers'][0]['name']
+
+    # Step 2: upload file
+    url = f'https://{server}.gofile.io/uploadFile'
+    headers = {'Authorization': f'Bearer {api_token}'}
+    files = {'file': open(file_path, 'rb')}
+
+    response = post(url, headers=headers, files=files, data={'folderId': folder_id})
+
+    if response.headers.get('content-type','').startswith('application/json'):
+        return response.json()
+    else:
+        return f'Unexpected response: {response.text}'
 
 if __name__ == '__main__':
     # print('This module is not meant to be run directly')

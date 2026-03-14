@@ -1,0 +1,1 @@
+A new day, a new version. This update doesn't feature many new things, but rather just focused on the user's begging experience. Most of the documentation has been refactored and cleaned up. Also for future development version release has been upgraded to an automatic and consistent system that enhances the release experience.

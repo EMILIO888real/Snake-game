@@ -8,7 +8,6 @@ If you aren't familiar with Python projects, check out [Extra notes](#extra-note
 2. If you are on **windows** you should check if the `slower key inputs` setting works for your system, by default it is disabled on windows via the `compatibility` setting.
 3. For **windows** users, the newest python version available for this project is **3.12**, since pygame doesn't support any version above 3.12. Unless you can find a way to install pygame for newer versions successfully.
 4. If you are on **windows** and are experiencing inconsistent frame times, try changing the `busy_loop_threshold` setting to a higher value, for example `0.01`, this will make the clock bust wait more, which can help with inconsistent frame times on some systems. You can experiment with different values to find the best one for your system. For windows users, the default value is `0.001`, set via the compatibility.
-5. If you are on **windows** `hold key inputs` might not work on your system, but this is a temporary issue that is being addressed.
 
 ## Contents
 - [Installation](#installation)
@@ -21,6 +20,9 @@ If you aren't familiar with Python projects, check out [Extra notes](#extra-note
   - [Settings](#settings)
   - [Config](#config)
   - [⚠️ Important Notes about Settings](#️-important-notes-about-settings)
+- [Simple bot](#simple-bot)
+  - [Simple bot settings](#simple-bot-settings)
+  - [Important notes about the simple bot settings](#important-notes-about-the-simple-bot-settings)
 - [In future updates](#in-future-updates)
 - [Extra notes](#extra-notes)
 - [Changelog](#changelog)
@@ -110,73 +112,12 @@ Your bot reads the game state from the info queue and sends movement commands th
 You can customize the game settings in the `settings.json` file. The settings section focuses on user preferences, while the config section deals with game parameters. Below are the available settings and their default values:
 
 ### Settings
-
-- **name**: Player/game profile name (default: `"Joker"`)
-- **screen size**: Display resolution in pixels [width, height] (default: `[640, 480]`)
-- **ups**: Updates per second (default: `240`)
-- **fps**: Frames per second (default: `240`)
-- **color pattern length**: Number of colors in the pattern cycle (default: `5`)
-- **color scheme**: Predefined color theme name (default: `"neon_cyberpunk"`)
-- **color style**: Color theme variant selector (default: `1`)
-- **portals**: Enable/disable portal wrapping (default: `true`)
-- **eating speeds you up**: Whether consuming food increases speed (default: `false`)
-- **eating speed you up amount**: Speed increase per food consumed (default: `10`)
-- **audio**: Master audio toggle (default: `true`)
-- **music**: Enable/disable background music (default: `true`)
-- **sfx**: Enable/disable sound effects (default: `true`)
-- **master volume**: Master audio volume 0.0-1.0 (default: `1.0`)
-- **music volume**: Background music volume 0.0-1.0 (default: `0.2`)
-- **eating sfx volume**: Eating sound volume 0.0-1.0 (default: `0.3`)
-- **lose sfx volume**: Loss sound volume 0.0-1.0 (default: `0.5`)
-- **music name**: Background music track selection (default: `"random"`)
-- **fullscreen**: Enable/disable fullscreen mode (default: `false`)
-- **snakes count**: Number of snakes in the game (default: `1`)
-- **grid lines**: Enable/disable grid lines (default: `true`)
-- **grid lines color**: RGB color for grid lines (default: `[40, 40, 40]`)
-- **cycle food colors**: Enable/disable cycling food colors (default: `true`)
-- **last piece becomes food color**: Whether the last piece becomes the food color (default: `true`)
-- **food starting color**: Starting color index for food (default: `1`)
-- **snake starting color**: Starting color index for snake (default: `0`)
-- **playlist**: Enable/disable music playlist (default: `true`)
-- **sequential playlist**: Enable/disable sequential playlist (default: `false`)
-- **careful between snakes collision detection**: Enable/disable careful collision detection between snakes (default: `false`)
-- **borderless**: Enable/disable borderless window mode (default: `false`)
-- **show performance stats**: Enable/disable performance stats display (default: `false`)
-- **color performance stats**: Enable/disable colored performance stats (default: `true`)
-- **percentage volume notification**: Enable/disable percentage volume notification (default: `true`)
-- **use image assets**: Enable/disable use of image assets (default: `false`)
-- **move up key**: Key for moving up (default: `"w"`)
-- **move down key**: Key for moving down (default: `"s"`)
-- **move left key**: Key for moving left (default: `"a"`)
-- **move right key**: Key for moving right (default: `"d"`)
-- **quit game key**: Key for quitting the game (default: `"q"`)
-- **toggle grid lines key**: Key for toggling grid lines (default: `"g"`)
-- **toggle performance stats key**: Key for toggling performance stats (default: "`")
-- **pause key**: Keys for pausing/unpausing the game (default: `["escape", "space"]`)
-- **increase volume key**: Key for increasing volume (default: `"kp_plus"`)
-- **decrease volume key**: Key for decreasing volume (default: `"kp_minus"`)
-- **forward music key**: Key for forwarding music track (default: `"f"`)
-- **backward music key**: Key for backward music track (default: `"b"`)
-- **repeat current song key**: Key for repeating current song (default: `"r"`)
-- **repeat current song modifier key**: Modifier key for repeat (default: `"lalt"`)
-- **safe food spawn**: Enable/disable safe food spawning (default: `true`)
-- **slower key inputs**: Enable/disable slower key inputs (default: `true`)
-- **restart game key**: Key for restarting the game (default: `"y"`)
-- **compatibility**: Enable/disable compatibility mode (default: `true`)
-- **show time**: Enable/disable time display (default: `true`)
-- **resizable window**: Enable/disable resizable window (default: `false`)
-- **toggle stopwatch key**: Key for toggling stopwatch (default: `"u"`)
-- **GUI**: Enable/disable GUI (default: `true`)
-- **disable soft restart key**: Key for disabling soft restart (default: `"home"`)
-- **crash game key**: Key for crashing the game (default: `"end"`)
-
+See [SETTINGS.md](./SETTINGS.md) for detailed information on user-configurable settings.
 
 ### Config
-
-Documentation for config settings is available in the config.md file.
+See [CONFIGURATION.md](./CONFIGURATION.md) for detailed information on game configuration parameters.
 
 ### ⚠️ Important Notes about Settings
-
 - **Sector size and step** must be chosen so that sector size is divisible by step without remainder for correct movement and alignment.
 - **Screen size** must be divisible by sector size without remainder to ensure proper grid alignment (width with sector width, height with sector height).
 - **Step must be ≤ sector size** for proper movement within the grid.
@@ -205,8 +146,7 @@ There is a simple bot included in the `bots` folder named `simple bot.py`, it is
 - **If you are experiencing problems with the algorithms they seem to do very badly, it's possible that the game is running to quickly for the bot, in that case decrease the UPS of the game via the `UPS` setting, or you can also enable the `wait for bot` setting.**
 
 ## In future updates
-1. Bot logic was off, for some reason?
-1. Start menu freezing the game when trying to quit.
+1. Add the automatic report sending, by using the Gofile api.
 1. Add a setting to the `simple bot` to be able to run multiple snake games at the same time.
 1. Add a version blit to the start menu.
 1. Change the writing system to use atomic writes. Create this function and add it to `et`
@@ -253,15 +193,11 @@ There is a simple bot included in the `bots` folder named `simple bot.py`, it is
 3. Maybe create a logger or activities archiver or something. Like for example it would save when and which snake ate food, possibly location. So you can possibly essentially record and replay a match as well for debugging and other purposes.
 
 ## Extra notes
-
 - All examples in this README assume commands are run from the project root directory.
 - `main.py` must be run from the project folder.
 
 ## Changelog
-- v0.0.0-Beta.1: Initial release with basic snake gameplay and bot support. Date: 2026-01-03
-- v0.0.0-Beta.1.9 Right before second beta, almost all of the features, just some changes from the survey will differentiate Beta.2 and Beta.1.9. Date: 2026-01-17
-- v0.24.1-Build.1 A major huge update that adds a ton of features. Date: 2026-03-13
-- v0.24.2-Build.0 Bug fixes related to windows users.
+See the full history in [CHANGELOG.md](./CHANGELOG.md).
 
 ## Feedback and Suggestions
 Feel free to share your thoughts, report bugs, or suggest new features by messaging me on discord: EMILIO#0663.

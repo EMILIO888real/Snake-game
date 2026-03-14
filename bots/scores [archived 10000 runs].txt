@@ -1,3 +1,4 @@
+Used default settings without presentation mode!
 
 Total time: 0:05:09.003233
 Average time per game: 0.03 seconds
