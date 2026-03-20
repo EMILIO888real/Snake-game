@@ -56,5 +56,13 @@
     "toggle stopwatch key": "u",
     "GUI": true,
     "disable soft restart key": "home",
-    "crash game key": "end"
+    "crash game key": "end",
+
+    "quit settings key": "s",
+    "scrollwheel speed": 30,
+    "custom cursor": true,
+    "open settings key": "c",
+    "switch setting section key": "z",
+    "next settings page key": "kp_plus",
+    "previous settings page key": "kp_minus"
 }

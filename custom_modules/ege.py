@@ -3,7 +3,7 @@
 from typing import Sequence
 import pygame
 
-def scale_position(position: Sequence[float], screen_size: Sequence[int]) -> list[float, float]:
+def scale_position(position: Sequence[float], screen_size: Sequence[int]) -> list[int, int]:
     '''
     scales a position from relative (0.0 to 1.0) to absolute (pixels)
     
@@ -14,7 +14,7 @@ def scale_position(position: Sequence[float], screen_size: Sequence[int]) -> lis
     :return: scaled position
     :rtype: list[float, float]
     '''
-    return [screen_size[0] * position[0], screen_size[1] * position[1]]
+    return [int(screen_size[0] * position[0]), int(screen_size[1] * position[1])]
 
 def create_text_blit(text: str, text_color: list[int, int, int], font: pygame.font, **anchor: tuple[int | float, int | float]) -> tuple[pygame.Surface, pygame.Rect]:
    '''

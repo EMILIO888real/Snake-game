@@ -90,7 +90,6 @@ def run_bot():
 
     while True:
         info = info_queue.get() # gets the location of the snake and food's position as well occasional codes for the game / bot state
-        
         if type(info) != dict: # Status codes for the game state. -1 means the game was quit, -2 means the game process crashed, -3 means the game encountered an error. In all of these cases we want to stop the bot and relaunch the game.
             if verbose:
                 match info:

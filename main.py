@@ -2,7 +2,9 @@
 Snake game made in python with pygame. Made by your's truly. Check README.md for more info and instructions. If you want to contribute, report a bug, or just want to chat about the game check out the github repo, links in the README.md!
 '''
 
+from ast import literal_eval
 from datetime import datetime, timedelta
+from math import ceil, floor
 
 import_time = datetime.now()
 
@@ -39,35 +41,38 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     # Reads and initializes settings
 
-    default_settings = {}
-    for file in ['.default settings.json', '.default config.json']:
-        default_settings.update(read_json(file))
+    default_settings = read_json('.default settings.json')
+    default_config = read_json('.default config.json')
 
     user_settings: dict = read_json('settings.json', {'name': 'Joker'})
 
-    settings: dict = merge_settings(user_settings, default_settings)
+    settings = merge_settings(user_settings, default_settings)
+    config = merge_settings(user_settings, default_config)
+
+    all_settings: dict = settings.copy()
+    all_settings.update(config)
 
     version = [version[1] for version in read_json('.version.json').items()]
-    settings['version'] = f'{version[0]}.{version[1]}.{version[2]} B({version[3]})'
+    all_settings['version'] = f'{version[0]}.{version[1]}.{version[2]} B({version[3]})'
 
-    custom_error_message = settings['custom error message']
-    generate_error_report = settings['generate error report']
-    overwrite_error_reports = settings['overwrite error reports']
+    custom_error_message = all_settings['custom error message']
+    generate_error_report = all_settings['generate error report']
+    overwrite_error_reports = all_settings['overwrite error reports']
 
-    error_report_start_text = settings['error report text start']
-    error_report_version_text = format_text(settings['error report text version'], settings['error report text version variable index'], settings['version'])
-    error_report_date_text = format_text(settings['error report text date'], settings['error report text date variable index'], datetime.now())
-    error_report_platform_text = format_text(settings['error report text platform'], settings['error report text platform variable index'], sys.platform)
-    error_report_python_version_text = format_text(settings['error report text python version'], settings['error report text python version variable index'], sys.version)
-    error_report_pygame_version_text = format_text(settings['error report text pygame version'], settings['error report text pygame version variable index'], pygame.version.ver)
+    error_report_start_text = all_settings['error report text start']
+    error_report_version_text = format_text(all_settings['error report text version'], all_settings['error report text version variable index'], all_settings['version'])
+    error_report_date_text = format_text(all_settings['error report text date'], all_settings['error report text date variable index'], datetime.now())
+    error_report_platform_text = format_text(all_settings['error report text platform'], all_settings['error report text platform variable index'], sys.platform)
+    error_report_python_version_text = format_text(all_settings['error report text python version'], all_settings['error report text python version variable index'], sys.version)
+    error_report_pygame_version_text = format_text(all_settings['error report text pygame version'], all_settings['error report text pygame version variable index'], pygame.version.ver)
 
     sdl_version = pygame.get_sdl_version()
-    error_report_sdl_version_text = format_text(settings['error report text sdl version'], settings['error report text sdl version variable index'], f'{sdl_version[0]}.{sdl_version[1]}.{sdl_version[2]}')
+    error_report_sdl_version_text = format_text(all_settings['error report text sdl version'], all_settings['error report text sdl version variable index'], f'{sdl_version[0]}.{sdl_version[1]}.{sdl_version[2]}')
     
     integrity = read_json('.integrity.json')
     integrity_cwd = set(integrity['CWD'])
     cwd = set(listdir('.'))
-    error_report_integrity_text = format_text(settings['error report text integrity'], settings['error report text integrity variable index'], settings['error report text integrity successful'] if integrity_cwd.issubset(cwd) else format_text(settings['error report text integrity failed'], settings['error report text integrity failed variable index'], integrity_cwd - cwd))
+    error_report_integrity_text = format_text(all_settings['error report text integrity'], all_settings['error report text integrity variable index'], all_settings['error report text integrity successful'] if integrity_cwd.issubset(cwd) else format_text(all_settings['error report text integrity failed'], all_settings['error report text integrity failed variable index'], integrity_cwd - cwd))
 
     error_occurred = False
     exiting_game = threading.Event()
@@ -95,13 +100,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             with open('error report.txt', 'a') as f:
                 for line in format_exception(exc_type, exc_value, exc_traceback):
                     f.write(line)
-            if settings['log']:
+            if all_settings['log']:
                 with open('.log.log', 'r') as f:
                     log_content =  '\n' + f.read()
                 with open('error report.txt', 'a') as f:
                     f.write(log_content)
             print('error report generated at: "./error report.txt"')
-            if not settings['log']:
+            if not all_settings['log']:
                 print('Logging wasn\'t enabled, would you please enable it and re-run the program to encounter the error with logging enabled.')
             if not launch_in_new_terminal(str(Path('error handler.py').absolute())):
                 print('No supported terminal emulator found. Please run "error handler.py" manually.')
@@ -123,39 +128,39 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     sys.excepthook = global_exception_handler # replace the default error handler with our own.
     threading.excepthook = thread_excepthook # Also, so other threads access the same handler
 
-    if settings['compatibility']:
+    if all_settings['compatibility']:
         if sys.platform == 'win32':
             print_colored_text('Warning you are running on windows with compatibility mode on!\nSome setting have been automatically changed.', [255, 255, 0])
-            settings['slower key inputs'] = False
-            settings['busy loop threshold'] = 0.001
+            all_settings['slower key inputs'] = False
+            all_settings['busy loop threshold'] = 0.001
 
 
-    if not settings['fullscreen']:
-        screen_size: list[int] = settings['screen size'] # Resolution should be able to cleanly divisible by the sector size, x to x and y to y. (x, y)
-    background_color: list[int] = settings['background color']
-    grid_lines_color: list[int] = settings['grid lines color']
-    fps: int = settings['fps']
-    ups: int = settings['ups']
+    if not all_settings['fullscreen']:
+        screen_size: list[int] = all_settings['screen size'] # Resolution should be able to cleanly divisible by the sector size, x to x and y to y. (x, y)
+    background_color: list[int] = all_settings['background color']
+    grid_lines_color: list[int] = all_settings['grid lines color']
+    fps: int = all_settings['fps']
+    ups: int = all_settings['ups']
     if ups == 'max speed':
         ups = 887
-    log: bool = settings['log']
-    gui: bool = settings['GUI']
+    log: bool = all_settings['log']
+    gui: bool = all_settings['GUI']
 
     if not gui:
-        settings['skip start menu'] = True
-        settings['skip end screen'] = True
+        all_settings['skip start menu'] = True
+        all_settings['skip end screen'] = True
 
-    sector_size: list[int] = settings['sector size'] # Needs to be able to cleanly divisible by steps
-    step: int = settings['step'] # Needs to be able to cleanly divisible by sector size, both x and y. If you change this while the script is running be sure to recalculate steps
+    sector_size: list[int] = all_settings['sector size'] # Needs to be able to cleanly divisible by steps
+    step: int = all_settings['step'] # Needs to be able to cleanly divisible by sector size, both x and y. If you change this while the script is running be sure to recalculate steps
 
-    portals: bool = settings['portals']
-    eating_speed_up: bool = settings['eating speeds you up']
-    eating_speed_up_amount: int = settings['eating speed you up amount']
-    snakes_count: int = settings['snakes count']
+    portals: bool = all_settings['portals']
+    eating_speed_up: bool = all_settings['eating speeds you up']
+    eating_speed_up_amount: int = all_settings['eating speed you up amount']
+    snakes_count: int = all_settings['snakes count']
 
     if log:
         last_log_time = datetime.now()
-        relative_log_time = settings['relative log time']
+        relative_log_time = all_settings['relative log time']
 
         def log_action(action: str, action_type: str):
             '''
@@ -172,15 +177,15 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             _log_action(create_log_message(action, action_type, last_log_time=last_log_time, relative_time=relative_log_time))
             last_log_time = datetime.now()
 
-        if not Path('.log.log').exists() or settings['reset log']:
+        if not Path('.log.log').exists() or all_settings['reset log']:
             with open('.log.log', 'w') as f:
                 f.write('')
-        _log_action(format_text(settings['log text for new session'], settings['log new session text time var index'], datetime.now()))
+        _log_action(format_text(all_settings['log text for new session'], all_settings['log new session text time var index'], datetime.now()))
         log_action(f'import time: {import_time}', 'INFO')
-        log_action('settings loaded', 'INFO')
+        log_action('all_settings loaded', 'INFO')
 
 
-    busy_loop_threshold = settings['busy loop threshold']
+    busy_loop_threshold = all_settings['busy loop threshold']
 
     class Advanced_clock():
         '''
@@ -222,20 +227,20 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     pygame.init()
 
     if gui:
-        if settings['borderless']:
+        if all_settings['borderless']:
             flag = pygame.NOFRAME
-        elif settings['resizable window']:
+        elif all_settings['resizable window']:
             flag = pygame.RESIZABLE
         else:
             flag = 0
 
-        if settings['fullscreen']:
+        if all_settings['fullscreen']:
             screen = pygame.display.set_mode(flags=pygame.FULLSCREEN | flag)
             screen_size = screen.get_size()
         else:
             screen = pygame.display.set_mode(screen_size, flag)
 
-        pygame.display.set_caption(settings['window name'])
+        pygame.display.set_caption(all_settings['window name'])
 
 
         if log:
@@ -246,20 +251,27 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     ups_clocks = [Advanced_clock(ups) for _ in range(snakes_count)]
     snakes_ups = [ups for _ in range(snakes_count)]
 
+    def clean_exit(full_exit: bool = True):
+        ''' Cleans up and exits the game safely, can be called from anywhere in the code when we need to exit. It sets the exiting_game event to signal any threads that we are exiting, then quits pygame and exits the program. '''
+        exiting_game.set() # So that any random errors, don't appear.
+        pygame.quit() # Shutdowns all pygame subprocesses
+        if full_exit:
+            exit()
+
     # handles image asset initialization
 
     def snake_head_noop(var):
         pass
 
-    image_assets = settings['use image assets']
+    def scale_image(image: pygame.Surface, size: Sequence[int, int] = sector_size) -> pygame.Surface:
+            return pygame.transform.scale(image, size)
+
+    image_assets = all_settings['use image assets']
 
     if image_assets:
         images = {}
         def load_image(name: str):
             images[name[:name.rfind('.')]] = pygame.image.load(Path(f'.images/{name}')).convert_alpha()
-
-        def scale_image(image: pygame.Surface, size: Sequence[int, int] = sector_size) -> pygame.Surface:
-            return pygame.transform.scale(image, size)
 
         for image_name in listdir(Path('.images')):
             load_image(image_name)
@@ -281,31 +293,31 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     # generates a dictionary with all of the font objects
 
-    font_settings_names = set()
+    font_settings_names = set(['setting', 'setting description'])
 
-    for setting in settings.keys():
+    for setting in all_settings.keys():
         if setting.endswith('text'):
             font_settings_names.add(setting[:setting.find('text') - 1])
 
     fonts = {}
     for font_setting in font_settings_names:
-        global_font_name = settings['font name']
-        global_font_size = settings['font size']
-        global_font_bold = settings['font bold']
-        global_font_italic = settings['font italic']
+        global_font_name = all_settings['font name']
+        global_font_size = all_settings['font size']
+        global_font_bold = all_settings['font bold']
+        global_font_italic = all_settings['font italic']
 
         if font_setting == 'performance':
             global_font_name = 'JetBrainsMono-Regular.ttf'
 
-        font_name = settings[f'{font_setting} text font']
-        setting_font_size_value = settings[f'{font_setting} text font size']
+        font_name = all_settings[f'{font_setting} text font']
+        setting_font_size_value = all_settings[f'{font_setting} text font size']
         font_size = setting_font_size_value if type(setting_font_size_value) != str else eval(str(global_font_size) + setting_font_size_value)
-        font_bold = settings[f'{font_setting} text bold']
-        font_italic = settings[f'{font_setting} text italic']
+        font_bold = all_settings[f'{font_setting} text bold']
+        font_italic = all_settings[f'{font_setting} text italic']
 
         args = (font_name if font_name != None else global_font_name, font_size if font_size != None else global_font_size,
                font_bold if font_bold != None else global_font_bold, font_italic if font_italic != None else global_font_italic)
-        fonts[font_setting] = (pygame.font.Font(Path('.fonts/' + args[0]), args[1]) if settings['use projects fonts'] else pygame.font.SysFont(*args))
+        fonts[font_setting] = (pygame.font.Font(Path('.fonts/' + args[0]), args[1]) if all_settings['use projects fonts'] else pygame.font.SysFont(*args))
 
     if log:
         log_action('fonts initialized', 'INFO')
@@ -324,29 +336,29 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     # Handles all audio (music and sfx)
 
-    audio: bool = settings['audio']
-    music: bool = settings['music']
-    sfx: bool = settings['sfx']
+    audio: bool = all_settings['audio']
+    music: bool = all_settings['music']
+    sfx: bool = all_settings['sfx']
     if audio:
-        master_volume = load_clean_decimal(settings['master volume'])
-        music_volume = load_clean_decimal(settings['music volume'])
-        eating_sfx_volume = load_clean_decimal(settings['eating sfx volume'])
-        lose_sfx_volume = load_clean_decimal(settings['lose sfx volume'])
+        master_volume = load_clean_decimal(all_settings['master volume'])
+        music_volume = load_clean_decimal(all_settings['music volume'])
+        eating_sfx_volume = load_clean_decimal(all_settings['eating sfx volume'])
+        lose_sfx_volume = load_clean_decimal(all_settings['lose sfx volume'])
 
 
         pygame.mixer.init()
 
         if music:
 
-            if type(settings['music name']) == str and settings['music name'] != 'random':
-                settings['playlist'] = False
+            if type(all_settings['music name']) == str and all_settings['music name'] != 'random':
+                all_settings['playlist'] = False
 
-            multiple_songs = type(settings['music name']) == list
+            multiple_songs = type(all_settings['music name']) == list
             if multiple_songs:
-                music_files = settings['music name']
+                music_files = all_settings['music name']
             else:
                 music_files = []
-                for music_directory in settings['music directories']:
+                for music_directory in all_settings['music directories']:
                     music_files.extend(str(Path(music_directory + ('/' if not music_directory.endswith('/') else '') + music_file)) for music_file in listdir(Path(music_directory))) # address with name, must be saved
 
             play_last_song = False # Has to be here to be at least once defined in the outer scope
@@ -358,14 +370,14 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
                 music_index = 0
                 played_music = []
-                playlist_sleep_time = settings['playlist cycle time']
-                sequential_playlist = settings['sequential playlist']
-                fade_ms = settings['music fade out']
+                playlist_sleep_time = all_settings['playlist cycle time']
+                sequential_playlist = all_settings['sequential playlist']
+                fade_ms = all_settings['music fade out']
 
-                music_notification_text_color = settings['music notification text color']
-                music_notification_text_position = scale_position_(settings['music notification text position'])
-                music_notification_variable_index = settings['music notification text variable index']
-                music_notification_text = settings['music notification text']
+                music_notification_text_color = all_settings['music notification text color']
+                music_notification_text_position = scale_position_(all_settings['music notification text position'])
+                music_notification_variable_index = all_settings['music notification text variable index']
+                music_notification_text = all_settings['music notification text']
 
                 while True:
                     while pygame.mixer.music.get_busy() or pause.is_set(): # Got to be a better way to do this to only check one of them at a time
@@ -400,13 +412,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     create_notification(create_text_blit_(format_text(music_notification_text, music_notification_variable_index, music_name[:music_name.rfind('.')]), music_notification_text_color, music_notification_text_position, 'music notification'), 'music')
 
             pygame.mixer.music.set_volume(master_volume * music_volume)
-            if not settings['playlist']:
-                pygame.mixer.music.load((music_files[randint(0, len(music_files) - 1)] if settings['music name'] == 'random' or multiple_songs else settings['music name']))
+            if not all_settings['playlist']:
+                pygame.mixer.music.load((music_files[randint(0, len(music_files) - 1)] if all_settings['music name'] == 'random' or multiple_songs else all_settings['music name']))
         if sfx:
-            lose_sfx_name = settings['lose sfx']
+            lose_sfx_name = all_settings['lose sfx']
             multiple_sfx = type(lose_sfx_name) == list
             lose_sfx_files = lose_sfx_name if multiple_sfx else listdir('.sfx/lose')
-            eating_sfx = pygame.mixer.Sound('.sfx/' + settings['eating sfx'])
+            eating_sfx = pygame.mixer.Sound('.sfx/' + all_settings['eating sfx'])
             eating_sfx.set_volume(master_volume * eating_sfx_volume)
             lose_sfx = pygame.mixer.Sound('.sfx/lose/' + lose_sfx_files[randint(0, len(lose_sfx_files) - 1)] if lose_sfx_name == 'random' or multiple_sfx else lose_sfx_name)
             lose_sfx.set_volume(master_volume * lose_sfx_volume)
@@ -432,7 +444,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         return create_text_blit(text, color, fonts[font], **anchor)
     
-    def create_text_blit_(text: str, color: Sequence[int], position: tuple[int | float, int | float], font: str):
+    def create_text_blit_(text: str, color: Sequence[int], position: tuple[int | float, int | float], font: str) -> pygame.Surface:
         '''
         Wrapper for create_text_blit function with center anchor.
         
@@ -448,7 +460,28 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         return create_text_blit_full_(text, color, font, center=position)
     
-    def scale_position_(position: tuple[float, float]) -> list[float, float]:
+    def create_text_blit_simple(setting: str, var: Optional[Any] = None) -> pygame.Surface:
+        '''
+        Creates a text blit based on a setting name and an optional variable to format the text with.
+        
+        :param setting: the name of the setting to use for the text, color, position, and font
+        :type setting: str
+        :param var: an optional variable to format the text with, if the text in the all_settings has a variable index
+        :type var: Optional[Any]
+        :return: rendered text surface and its rect
+        :rtype: pygame.Surface
+        '''
+
+        if not setting.endswith('text'):
+            setting = f'{setting} text'
+
+        if var is None:
+            text = all_settings[setting]
+        else:
+            text = format_text(all_settings[setting], all_settings[f'{setting} variable index'], var)
+        return create_text_blit_(text, all_settings[f'{setting} color'], scale_position_(all_settings[f'{setting} position']), setting[:-5])
+    
+    def scale_position_(position: tuple[float, float]) -> list[int, int]:
         '''
         Wrapper for scale_position function.
         
@@ -485,7 +518,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         return colors
     
     if not image_assets:
-        color_generator(settings['color pattern length'], True, settings['color scheme'], settings['color style'])
+        color_generator(all_settings['color pattern length'], True, all_settings['color scheme'], all_settings['color style'])
         main_colors = cycle(color_generator(read_from_disk=True))
 
 
@@ -493,12 +526,12 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         for _ in range(snakes_count):
             main_colors = cycle(color_generator(read_from_disk=True))
-            for _ in range(settings['snake starting color'] + 1):
+            for _ in range(all_settings['snake starting color'] + 1):
                 snake_color = create_color_list(1, False)
             colors.append(snake_color)
 
         main_colors = cycle(color_generator(read_from_disk=True))
-        for _ in range(settings['food starting color'] + 1):
+        for _ in range(all_settings['food starting color'] + 1):
             food_color = create_color_list(1, False)
         colors.append(food_color)
 
@@ -527,7 +560,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     actions: list[list[int]] # 0 -> up, 1 -> left, 2 -> down, 3 -> right
 
     points = 0
-    formatted_points_text = format_text(settings['points text'], settings['points text variable index'], points)
+    formatted_points_text = format_text(all_settings['points text'], all_settings['points text variable index'], points)
     keep_restarting = threading.Event()
     
     def generate_game_values():
@@ -551,7 +584,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         snakes = []
         starting_position = []
 
-        if settings['sequential starting position']:
+        if all_settings['sequential starting position']:
             between_positions_len = (left_column * top_row) // snakes_count
             for position in range(left_column + 1, left_column * top_row, between_positions_len):
                     while position in illegal_positions:
@@ -559,7 +592,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     starting_position.append(position)
 
         for i in range(snakes_count):
-            if not settings['sequential starting position']:
+            if not all_settings['sequential starting position']:
                 starting_position.append(randint(0, last_sector_index)) # Guess first
                 while starting_position[i] in illegal_positions: # Then check if we need to regenerate it
                     starting_position[i] = randint(0, last_sector_index)
@@ -586,7 +619,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         pause = threading.Event()
         play_times = []
         points = 0
-        points_blittable = create_text_blit_(formatted_points_text, settings['points text color'], scale_position_(settings['points text position']), 'points')
+        points_blittable = create_text_blit_(formatted_points_text, all_settings['points text color'], scale_position_(all_settings['points text position']), 'points')
         game_started_time = datetime.now()
         actions = [[] for _ in range(snakes_count)] # 0 -> up, 1 -> left, 2 -> down, 3 -> right
 
@@ -613,17 +646,17 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
 
     def update_all_volumes() -> None:
-        ''' Updates the volume of all audio elements based on the current master volume and their individual volume settings. Possibly will change it to use a list or a dictionary. '''
+        ''' Updates the volume of all audio elements based on the current master volume and their individual volume all_settings. Possibly will change it to use a list or a dictionary. '''
 
         pygame.mixer.music.set_volume(music_volume * master_volume)
         lose_sfx.set_volume(lose_sfx_volume * master_volume)
         eating_sfx.set_volume(eating_sfx_volume * master_volume)
 
-    volume_text = settings['volume notification text']
-    volume_text_position = scale_position_(settings['volume notification text position'])
-    volume_variable_index = settings['volume notification text variable index']
-    volume_color = settings['volume notification text color']
-    percentage_notification = settings['percentage volume notification']
+    volume_text = all_settings['volume notification text']
+    volume_text_position = scale_position_(all_settings['volume notification text position'])
+    volume_variable_index = all_settings['volume notification text variable index']
+    volume_color = all_settings['volume notification text color']
+    percentage_notification = all_settings['percentage volume notification']
 
     def volume_change_notification():
         notifications.append((create_text_blit_(format_text(volume_text, volume_variable_index, round(master_volume * 100) if percentage_notification else round(master_volume, 2)), volume_color, volume_text_position, 'volume notification'), 'volume'))
@@ -639,9 +672,9 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         update_all_volumes()
         volume_change_notification()
 
-    if settings['clamp master volume']:
-        bottom_range = settings['master volume range'][0]
-        top_range = settings['master volume range'][1]
+    if all_settings['clamp master volume']:
+        bottom_range = all_settings['master volume range'][0]
+        top_range = all_settings['master volume range'][1]
 
         def update_master_volume(increment: int) -> None:
             nonlocal master_volume
@@ -682,24 +715,46 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         return getattr(pygame, f'K{attribute}_{modifier.upper()}')
     
-    volume_up_increment: Decimal = Decimal(str(settings['volume up increment']))
-    volume_down_increment: Decimal = Decimal(str(settings['volume down increment']))
+    def get_key(key: str, modifier: str = '') -> int:
+        '''
+        gets the key code from a key name string, if the key name is longer than 1 character it will try to get it as a modifier key.
+        
+        :param key: key name
+        :type key: str
+        :param modifier: modifier name, only used if the key name is longer than 1
+        :type modifier: str
+        :return: key code
+        :rtype: int
+        '''
 
-    quit_key = get_key_code(settings['quit game key'])
-    move_up_key = get_key_code(settings['move up key'])
-    move_left_key = get_key_code(settings['move left key'])
-    move_down_key = get_key_code(settings['move down key'])
-    move_right_key = get_key_code(settings['move right key'])
-    forward_music_key = get_key_code(settings['forward music key'])
-    backward_music_key = get_key_code(settings['backward music key'])
-    repeat_current_song_key = get_key_code(settings['repeat current song key'])
-    repeat_current_song_modifier_key = get_k_code(settings['repeat current song modifier key'], 'MOD')
-    pause_key, pause_key_alternative = get_key_code(settings['pause key'][0]), get_key_code(settings['pause key'][1])
-    performance_stats_key = get_key_code(settings['toggle performance stats key'])
-    restart_key = get_key_code(settings['restart game key'])
-    stopwatch_key = get_key_code(settings['toggle stopwatch key'])
-    disable_soft_restart_key = get_key_code(settings['disable soft restart key'])
-    crash_key = get_key_code(settings['crash game key'])
+        if len(key) > 1:
+            return get_k_code(key, modifier)
+        else:
+            return get_key_code(key)
+
+    volume_up_increment: Decimal = Decimal(str(all_settings['volume up increment']))
+    volume_down_increment: Decimal = Decimal(str(all_settings['volume down increment']))
+
+    quit_key = get_key(all_settings['quit game key'])
+    move_up_key = get_key(all_settings['move up key'])
+    move_left_key = get_key(all_settings['move left key'])
+    move_down_key = get_key(all_settings['move down key'])
+    move_right_key = get_key(all_settings['move right key'])
+    forward_music_key = get_key(all_settings['forward music key'])
+    backward_music_key = get_key(all_settings['backward music key'])
+    repeat_current_song_key = get_key(all_settings['repeat current song key'])
+    repeat_current_song_modifier_key = get_key(all_settings['repeat current song modifier key'], 'MOD')
+    pause_key, pause_key_alternative = get_key(all_settings['pause key'][0]), get_key(all_settings['pause key'][1])
+    performance_stats_key = get_key(all_settings['toggle performance stats key'])
+    restart_key = get_key(all_settings['restart game key'])
+    stopwatch_key = get_key(all_settings['toggle stopwatch key'])
+    disable_soft_restart_key = get_key(all_settings['disable soft restart key'])
+    crash_key = get_key(all_settings['crash game key'])
+    quit_settings_key = get_key(all_settings['quit settings key'])
+    open_settings_key = get_key(all_settings['open settings key'])
+    switch_setting_section_key = get_key(all_settings['switch setting section key'])
+    next_settings_page_key = get_key(all_settings['next settings page key'])
+    previous_settings_page_key = get_key(all_settings['previous settings page key'])
 
     repeat_song = False
     queue_song = False # Just if the user decides to cancel action
@@ -838,7 +893,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             while True:
                 _receiver()
 
-        if not settings['wait for bot']:
+        if not all_settings['wait for bot']:
             threading.Thread(target=receiver, daemon=True).start()
             receiver_handler = noop
 
@@ -883,18 +938,18 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             def tick():
                 ups_clock.tick()
 
-        last_piece_food_color = settings['last piece becomes food color']
-        cycle_food_colors = settings['cycle food colors']
-        optimize_speed_up = settings['increase jumps with increasing ups']
-        safe_food_spawn = settings['safe food spawn']
-        faster_food_position = settings['faster food position']
+        last_piece_food_color = all_settings['last piece becomes food color']
+        cycle_food_colors = all_settings['cycle food colors']
+        optimize_speed_up = all_settings['increase jumps with increasing ups']
+        safe_food_spawn = all_settings['safe food spawn']
+        faster_food_position = all_settings['faster food position']
 
-        points_text = settings['points text']
-        points_text_var_index = settings['points text variable index']
-        points_text_color = settings['points text color']
-        points_text_position = settings['points text position']
+        points_text = all_settings['points text']
+        points_text_var_index = all_settings['points text variable index']
+        points_text_color = all_settings['points text color']
+        points_text_position = all_settings['points text position']
 
-        snake_pause_cycle_time = settings['snake pause cycle time']
+        snake_pause_cycle_time = all_settings['snake pause cycle time']
 
         if faster_food_position:
             all_possible_positions = set(sectors)
@@ -1055,21 +1110,21 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         # Send the setting at the start
         if info_queues is not None:
             info_queue = info_queues[snake_index]
-            info_queue.put(settings)
+            info_queue.put(all_settings)
         else:
             info_queue = None # needed
 
 
         snakes_to_check = [range(0, snake_index), range(snake_index + 1, snakes_count)]
-        sector_portion_x = sector_size[0] * settings['careful between snakes collision x portion']
-        sector_portion_y = sector_size[1] * settings['careful between snakes collision y portion']
+        sector_portion_x = sector_size[0] * all_settings['careful between snakes collision x portion']
+        sector_portion_y = sector_size[1] * all_settings['careful between snakes collision y portion']
 
-        if settings['careful between snakes collision detection']:
+        if all_settings['careful between snakes collision detection']:
             careful_collision_detection = lambda: abs(piece.topleft[0] - head.topleft[0]) < sector_portion_x and abs(piece.topleft[1] - head.topleft[1]) < sector_portion_y # pyright: ignore[reportUndefinedVariable] # Maybe optimize this calculation to be faster
         else:
             careful_collision_detection = lambda: True
 
-        if settings['collision between snakes']:
+        if all_settings['collision between snakes']:
             def between_snakes_collision():
                 for snake_range in snakes_to_check:
                     for snake_i in snake_range:
@@ -1092,7 +1147,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             ''' No operation serialize function, just returns the rect, used when we don't want to serialize data for the bot. '''
             return rect
 
-        serialize = rect_to_tuple if settings['serialize data'] else serialize_noop
+        serialize = rect_to_tuple if all_settings['serialize data'] else serialize_noop
 
         if info_queue is not None:
             def bot_communication():
@@ -1163,16 +1218,16 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             display_notifications.append(notification)
             notifications.pop(0)
 
-        notification_sleep_time = settings['notification cycle time']
-        notification_waiting_time = settings['notification waiting cycle time']
-        notification_display_time = timedelta(seconds=settings['notification display time'])
+        notification_sleep_time = all_settings['notification cycle time']
+        notification_waiting_time = all_settings['notification waiting cycle time']
+        notification_display_time = timedelta(seconds=all_settings['notification display time'])
 
         notifications_times = []
         notification_display_times = {}
         notification_types_present = {'music': False, 'volume': False}
 
         for notification_type in TYPES_OF_NOTIFICATIONS:
-            setting_notification_display_time = settings[f'{notification_type} notification display time']
+            setting_notification_display_time = all_settings[f'{notification_type} notification display time']
             notification_display_times[notification_type] = notification_display_time if setting_notification_display_time is None else timedelta(seconds=setting_notification_display_time)
 
 
@@ -1202,16 +1257,11 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
             notification_drawer = noop # turns off the drawer, going back to being afk
 
-    threading.Thread(target=notification_manager, daemon=True).start()
 
-    if log:
-        log_action('notification manager initialized', 'INFO')
+    slow_key_cycle_time = all_settings['slow key input cycle time']
 
-
-    slow_key_cycle_time = settings['slow key input cycle time']
-
-    increment = settings['hold key increment']
-    min_var_value = settings['hold key minimal value']
+    increment = all_settings['hold key increment']
+    min_var_value = all_settings['hold key minimal value']
 
     # Look into remaking this maybe, looks a little bit too nested.
 
@@ -1232,8 +1282,8 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         change_volume(-volume_down_increment)
 
 
-    volume_up_key = get_k_code(settings['increase volume key'])
-    volume_down_key = get_k_code(settings['decrease volume key'])
+    volume_up_key = get_key(all_settings['increase volume key'])
+    volume_down_key = get_key(all_settings['decrease volume key'])
 
     def slow_key_inputs():
         ''' handles key inputs for keys that can be held down, to repeat the action after a certain amount of time, and then at a certain increment. Gets called each frame, but only does something when the keys are being held down. '''
@@ -1262,13 +1312,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         # keys = pygame.key.get_pressed() # For when I want to add button presses that aren't toggles
 
-    paused_blittable = create_text_blit_(settings['paused text'], settings['paused text color'], scale_position_(settings['paused text position']), 'paused')
+    paused_blittable = create_text_blit_(all_settings['paused text'], all_settings['paused text color'], scale_position_(all_settings['paused text position']), 'paused')
 
     # For the drawing function, we can precalculate some values to optimize it a little bit, since it is called every frame and has some calculations in it.
 
-    head_width = settings['snake head width']
-    food_width = settings['food width']
-    grid_lines_width = settings['grid lines width']
+    head_width = all_settings['snake head width']
+    food_width = all_settings['food width']
+    grid_lines_width = all_settings['grid lines width']
 
     def drawing():
         '''
@@ -1298,13 +1348,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     pygame.draw.rect(screen, colors[snake_index][body_i], snake[body_i])
         screen.blit(food_image, food)
 
-    drawer = drawing_images if settings['use image assets'] else drawing
+    drawer = drawing_images if all_settings['use image assets'] else drawing
 
     def draw_grid_lines():
         for sector in sectors:
             pygame.draw.rect(screen, grid_lines_color, (*sector, sector_size[0], sector_size[1]), grid_lines_width)
 
-    draw_grid = settings['grid lines']
+    draw_grid = all_settings['grid lines']
     grid_drawer = draw_grid_lines if draw_grid else noop
 
     def draw_paused():
@@ -1314,14 +1364,14 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     # Calculate the offset for the performance text
 
-    fps_index = settings['performance text variable fps index']
-    ups_index = settings['performance text variable ups index']
+    fps_index = all_settings['performance text variable fps index']
+    ups_index = all_settings['performance text variable ups index']
 
-    if settings['round performance stats']:
+    if all_settings['round performance stats']:
         # Defined here, because they are used for the round function in a hot loop
 
-        fps_precision = settings['fps round decimal places']
-        ups_precision = settings['ups round decimal places']
+        fps_precision = all_settings['fps round decimal places']
+        ups_precision = all_settings['ups round decimal places']
 
         extra_float_spacing_fps = 1 + fps_precision
         extra_float_spacing_ups = 1 + ups_precision
@@ -1330,41 +1380,41 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         extra_float_spacing_ups = 0
 
     # Space character in numbers place (placeholders)
-    fps_text_space = (len(str(int(fps))) + settings['extra performance text fps spacing'] + extra_float_spacing_fps) * ' '
-    ups_text_space = (len(str(int(ups))) + settings['extra performance text ups spacing'] + extra_float_spacing_ups) * ' '
+    fps_text_space = (len(str(int(fps))) + all_settings['extra performance text fps spacing'] + extra_float_spacing_fps) * ' '
+    ups_text_space = (len(str(int(ups))) + all_settings['extra performance text ups spacing'] + extra_float_spacing_ups) * ' '
 
     # Need to format whole text in the correct order from left to right.
     # Myb change this to look cleaner!!!
     if fps_index < ups_index:
-        formatted_performance_text = format_text(settings['performance text'], settings['performance text variable fps index'], fps_text_space)
-        formatted_performance_text = format_text(formatted_performance_text, settings['performance text variable ups index'] + len(formatted_performance_text) - len(settings['performance text']), ups_text_space)
+        formatted_performance_text = format_text(all_settings['performance text'], all_settings['performance text variable fps index'], fps_text_space)
+        formatted_performance_text = format_text(formatted_performance_text, all_settings['performance text variable ups index'] + len(formatted_performance_text) - len(all_settings['performance text']), ups_text_space)
     else:
-        formatted_performance_text = format_text(settings['performance text'], settings['performance text variable ups index'], ups_text_space)
-        formatted_performance_text = format_text(formatted_performance_text, settings['performance text variable fps index'] + len(formatted_performance_text) - len(settings['performance text']), fps_text_space)
-    performance_blittable = create_text_blit_full_(formatted_performance_text, settings['performance text color'], 'performance', topleft=scale_position_(settings['performance text position']))
+        formatted_performance_text = format_text(all_settings['performance text'], all_settings['performance text variable ups index'], ups_text_space)
+        formatted_performance_text = format_text(formatted_performance_text, all_settings['performance text variable fps index'] + len(formatted_performance_text) - len(all_settings['performance text']), fps_text_space)
+    performance_blittable = create_text_blit_full_(formatted_performance_text, all_settings['performance text color'], 'performance', topleft=scale_position_(all_settings['performance text position']))
 
     first_ups_clock = ups_clocks[0]
-    fps_text_position = scale_position_(settings['performance text position'])
-    fps_text_position[0] += fonts['performance'].size(settings['performance text'][:fps_index] + (ups_text_space if fps_index > ups_index else ''))[0] # offset text position based on the previously written text
-    ups_text_position = scale_position_(settings['performance text position'])
-    ups_text_position[0] += fonts['performance'].size(settings['performance text'][:ups_index] + (fps_text_space if ups_index > fps_index else ''))[0] # offset text position based on the previously written text
+    fps_text_position = scale_position_(all_settings['performance text position'])
+    fps_text_position[0] += fonts['performance'].size(all_settings['performance text'][:fps_index] + (ups_text_space if fps_index > ups_index else ''))[0] # offset text position based on the previously written text
+    ups_text_position = scale_position_(all_settings['performance text position'])
+    ups_text_position[0] += fonts['performance'].size(all_settings['performance text'][:ups_index] + (fps_text_space if ups_index > fps_index else ''))[0] # offset text position based on the previously written text
 
-    good_fps = fps * settings['good fps']
-    normal_fps = fps * settings['normal fps']
-    good_ups = ups * settings['good ups']
-    normal_ups = ups * settings['normal ups']
+    good_fps = fps * all_settings['good fps']
+    normal_fps = fps * all_settings['normal fps']
+    good_ups = ups * all_settings['good ups']
+    normal_ups = ups * all_settings['normal ups']
 
 
-    performance_text_color = settings['performance text color']
+    performance_text_color = all_settings['performance text color']
 
-    good_fps_color = settings['good fps color']
-    normal_fps_color = settings['normal fps color']
-    bad_fps_color = settings['bad fps color']
-    good_ups_color = settings['good ups color']
-    normal_ups_color = settings['normal ups color']
-    bad_ups_color = settings['bad ups color']
+    good_fps_color = all_settings['good fps color']
+    normal_fps_color = all_settings['normal fps color']
+    bad_fps_color = all_settings['bad fps color']
+    good_ups_color = all_settings['good ups color']
+    normal_ups_color = all_settings['normal ups color']
+    bad_ups_color = all_settings['bad ups color']
 
-    if settings['color performance stats']:
+    if all_settings['color performance stats']:
         def fps_color(current_fps: int):
             if current_fps > good_fps:
                 return good_fps_color
@@ -1385,13 +1435,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         def ups_color(current_ups: int):
             return performance_text_color
         
-    if settings['very high ups performance stats']:
+    if all_settings['very high ups performance stats']:
         def format_ups(ups: float) -> float:
             return ups
         def format_fps(fps: float) -> float:
             return fps
     else:
-        if settings['round performance stats']:
+        if all_settings['round performance stats']:
 
             def format_ups(ups: float) -> int:
                 return round(ups, ups_precision)
@@ -1404,7 +1454,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                 return int(fps)
 
 
-    performance_stats_cycle_time = settings['performance stats cycle time']
+    performance_stats_cycle_time = all_settings['performance stats cycle time']
     fps_blit = None
     ups_blit = None
 
@@ -1434,7 +1484,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         screen.blit(*fps_blit)
         screen.blit(*ups_blit)
 
-    draw_performance = settings['show performance stats']
+    draw_performance = all_settings['show performance stats']
     performance_drawer = draw_performance_stats if draw_performance else noop
 
     if draw_performance:
@@ -1451,14 +1501,14 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     notification_drawer = noop
 
-    time_text = settings['time text']
-    time_text_var_index = settings['time text variable index']
-    time_text_color = settings['time text color']
-    show_time_format = settings['show time format']
-    time_position = settings['time text position']
-    show_time_cycle = settings['show time cycle time']
+    time_text = all_settings['time text']
+    time_text_var_index = all_settings['time text variable index']
+    time_text_color = all_settings['time text color']
+    show_time_format = all_settings['show time format']
+    time_position = all_settings['time text position']
+    show_time_cycle = all_settings['show time cycle time']
 
-    show_time = settings['show time']
+    show_time = all_settings['show time']
 
     time_blit = None
 
@@ -1490,63 +1540,337 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         nonlocal actions
 
-        start_direction = settings['start direction']
+        start_direction = all_settings['start direction']
         for snake_index in range(snakes_count):
             actions[snake_index].append(randint(0, 3) if start_direction == 4 else start_direction)
             move(moves[snake_index][randint(0, 3) if start_direction == 4 else start_direction], snake_index)
 
-    if settings['skip start menu']:
+    if all_settings['skip start menu']:
         skip_start_menu()
     else:
-        start_menu_text = create_text_blit_(settings['start menu text'], settings['start menu text color'], scale_position_(settings['start menu text position']), 'start menu')
-        version_text = create_text_blit_(format_text(settings['version text'], settings['version text variable index'], settings['version']), settings['version text color'], scale_position_(settings['version text position']), 'version')
+        start_menu_text = format_text(all_settings['start menu text'], all_settings['start menu text variable index'], f'{all_settings['move up key']}{all_settings['move left key']}{all_settings['move down key']}{all_settings['move right key']}'.upper())
+        start_menu_blit = create_text_blit_(start_menu_text, all_settings['start menu text color'], scale_position_(all_settings['start menu text position']), 'start menu')
+        version_blit = create_text_blit_(format_text(all_settings['version text'], all_settings['version text variable index'], all_settings['version']), all_settings['version text color'], scale_position_(all_settings['version text position']), 'version')
+
+        settings_blit = create_text_blit_simple('settings')
+        switch_settings_mode_blit = create_text_blit_simple('switch settings mode')
+
+
+        if all_settings['custom cursor']:
+
+            pygame.mouse.set_visible(False)
+            cursor_size = all_settings['cursor size']
+
+            frames = listdir(f'.images/cursors/{all_settings['cursor name']}/')
+            frame_count = len(frames)
+
+            if frame_count == 1:
+                cursor_frame = scale_image(pygame.image.load(f'.images/cursors/{all_settings['cursor name']}/0.png').convert_alpha(), cursor_size)
+            else:
+                cursor_frames = cycle([scale_image(pygame.image.load(f'.images/cursors/{all_settings['cursor name']}/{i}.png').convert_alpha(), cursor_size) for i in range(frame_count)])
+                cursor_frame = next(cursor_frames)
+
+                cursor_delay = all_settings['cursor delay']
+
+                def create_cursor_frame():
+
+                    nonlocal cursor_frame
+
+                    while actions[0] == []:
+                        cursor_frame = next(cursor_frames)
+                        sleep(cursor_delay)
+
+                threading.Thread(target=create_cursor_frame, daemon=True).start()
+
+            def cursor_drawer():
+                '''Draws the custom cursor at the mouse position. If there are multiple frames, it will animate the cursor by changing the frame after a certain amount of time. The cursor will be drawn at the mouse position, and the mouse will be hidden.'''
+                screen.blit(cursor_frame, pygame.mouse.get_pos())
+        else:
+            cursor_drawer = noop
+
+
+        def settings_menu():
+            setting_next_page_blit = create_text_blit_simple('setting next page')
+            setting_next_page_button_color = all_settings['setting next page button color']
+
+            settings_previous_page_blit = create_text_blit_simple('setting previous page')
+            setting_previous_page_button_color = all_settings['setting previous page button color']
+
+            apply_settings_blit = create_text_blit_simple('apply settings')
+            apply_settings_button_color = all_settings['apply settings button color']
+
+            settings_start_position = scale_position_(all_settings['setting text position'])
+
+
+            spacing = all_settings['setting spacing'] * screen_size[0]
+            scrollwheel_amount = all_settings['scrollwheel speed']
+            settings_viewer_position = [0, 0]
+
+
+            setting_position = settings_start_position.copy()
+            settings_blits = [] # This is for the calculation logic
+            for setting in settings.items():
+                settings_blits.append(create_text_blit_full_(f'{setting[0]}: {setting[1]}', all_settings['setting text color'], 'setting', topleft=setting_position))
+                setting_position[1] += spacing
+            
+            setting_position = settings_start_position.copy()
+            config_blits = [] # This is for the calculation logic
+            for setting in config.items():
+                config_blits.append(create_text_blit_full_(f'{setting[0]}: {setting[1]}', all_settings['setting text color'], 'setting', topleft=setting_position))
+                setting_position[1] += spacing
+
+            last_setting_position = -((len(settings_blits) + 1) * spacing - screen_size[1])
+            last_config_position = -((len(config_blits) + 1) * spacing - screen_size[1])
+
+
+            settings_descriptions_color = all_settings['setting description text color']
+            with open('SETTINGS.md') as f:
+                settings_descriptions_blits = [create_text_blit_full_(description[description.find(':') + 1:].replace('`', ''), settings_descriptions_color, 'setting description', topleft=(0, 0))[0] for description in f.read().splitlines()[2:]]
+            with open('CONFIGURATION.md') as f:
+                config_descriptions_blits = [create_text_blit_full_(description[description.find(':') + 1:].replace('`', ''), settings_descriptions_color, 'setting description', topleft=(0, 0))[0] for description in f.read().splitlines()[2:]]
+
+            for _ in range(len(settings) - len(settings_descriptions_blits) + 1):
+                settings_descriptions_blits.append(create_text_blit_full_('Not documented yet!', settings_descriptions_color, 'setting description', topleft=(0, 0))[0])
+            for _ in range(len(config) - len(config_descriptions_blits) + 1):
+                config_descriptions_blits.append(create_text_blit_full_('Not documented yet!', settings_descriptions_color, 'setting description', topleft=(0, 0))[0])
+            
+            current_settings_blits = settings_blits
+            current_last_setting_position = last_setting_position
+            current_settings_descriptions_blits = settings_descriptions_blits
+            current_settings = list(settings.items())
+
+            def get_index():
+                ''' Gets the index of the setting that is being hovered over in the settings menu, based on the mouse position and the settings viewer position. Returns -1 if no setting is being hovered over. '''
+                return ceil((event.pos[1] - settings_viewer_position[1] - settings_start_position[1]) / spacing) - 1
+
+            setting_description_blit = settings_descriptions_blits[0]
+            setting_description_color = all_settings['setting description button color']
+
+            def draw_setting_description():
+                ''' Draws the description of the setting at the topleft position of the mouse. '''
+                mouse_pos = pygame.Rect(*pygame.mouse.get_pos(), 1, 1)
+                mouse_pos.y -= 20
+                pygame.draw.rect(screen, setting_description_color, pygame.Rect(mouse_pos.x, mouse_pos.y, setting_description_blit.get_size()[0], spacing))
+                screen.blit(setting_description_blit, mouse_pos)
+            
+            setting_description_drawer = noop
+
+
+            def update_changed_settings(changed_settings: dict):
+                '''Updates the settings with the changed settings, and saves them to the settings.json file, then reboots the script to apply the changes.'''
+
+                user_settings.update(changed_settings)
+                with open('settings.json', 'w') as f:
+                    dump(user_settings, f, indent=4)
+                reboot_current_script()
+
+            def switch_settings_section():
+
+                nonlocal current_settings_blits, current_last_setting_position, current_settings_descriptions_blits, current_settings
+
+                if current_settings_blits == settings_blits:
+                    current_settings_blits = config_blits
+                    current_last_setting_position = last_config_position
+                    current_settings_descriptions_blits = config_descriptions_blits
+                    current_settings = list(config.items())
+                else:
+                    current_settings_blits = settings_blits
+                    current_last_setting_position = last_setting_position
+                    current_settings_descriptions_blits = settings_descriptions_blits
+                    current_settings = list(settings.items())
+                if settings_viewer_position[1] < current_last_setting_position:
+                        settings_viewer_position[1] = current_last_setting_position
+
+            def next_settings_page():
+                ''' Moves the settings viewer position down by the screen size, to show the next page of settings. Also checks if the viewer position is out of bounds, and if it is, it sets it to the last setting position. '''
+
+                nonlocal settings_viewer_position
+
+                settings_viewer_position[1] -= screen_size[1]
+                if settings_viewer_position[1] < current_last_setting_position:
+                    settings_viewer_position[1] = current_last_setting_position
+
+            def previous_settings_page():
+                ''' Moves the settings viewer position up by the screen size, to show the previous page of settings. Also checks if the viewer position is out of bounds, and if it is, it sets it to 0. '''
+
+                nonlocal settings_viewer_position
+
+                settings_viewer_position[1] += screen_size[1]
+                if settings_viewer_position[1] > 0:
+                    settings_viewer_position[1] = 0
+                
+            typing = False
+            changed_settings = {}
+
+            # Setting menu GUI loop
+
+            while True:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        clean_exit()
+                    if event.type == pygame.KEYDOWN:
+                        if typing:
+                            key = event.unicode
+                            if key == '\r':
+                                typing = False
+                                if type(setting_value) != str:
+                                    text_input = literal_eval(text_input)
+                                changed_settings[current_settings[setting_index][0]] = text_input
+                            elif key == '\b':
+                                text_input = text_input[:-1]
+                            else:
+                                text_input += key
+                            current_settings_blits[setting_index] = create_text_blit_full_(f'{setting[0]}: {text_input}', all_settings['setting text color'], 'setting', topleft=current_settings_blits[setting_index][1].topleft)
+                        else:
+                            if event.key == quit_key:
+                                clean_exit()
+                            elif event.key == quit_settings_key:
+                                update_changed_settings(changed_settings)
+                            elif event.key == switch_setting_section_key:
+                                switch_settings_section()
+                            elif event.key == next_settings_page_key:
+                                next_settings_page()
+                            elif event.key == previous_settings_page_key:
+                                previous_settings_page()
+
+
+                    if event.type == pygame.MOUSEWHEEL:
+                        if event.y > 0:
+                            settings_viewer_position[1] += scrollwheel_amount
+                            if settings_viewer_position[1] > 0:
+                                settings_viewer_position[1] = 0
+                        else:
+                            settings_viewer_position[1] -= scrollwheel_amount
+                            if settings_viewer_position[1] <= current_last_setting_position:
+                                settings_viewer_position[1] = current_last_setting_position
+
+
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        if event.button == 1:
+                            mouse_pos = pygame.Rect(*event.pos, 1, 1)
+
+                            if mouse_pos.colliderect(setting_next_page_blit[1]):
+                                next_settings_page()
+
+                            elif mouse_pos.colliderect(settings_previous_page_blit[1]):
+                                previous_settings_page()
+
+
+                            elif mouse_pos.colliderect(switch_settings_mode_blit[1]):
+                                switch_settings_section()
+
+                            elif mouse_pos.colliderect(apply_settings_blit[1]):
+                                update_changed_settings(changed_settings)
+
+                            if event.pos[0] >= settings_start_position[1]:
+                                if not typing:
+                                    index = get_index()
+                                    if event.pos[0] <= current_settings_blits[index][1].width + settings_start_position[0]:
+                                        setting_index = index
+                                        setting = current_settings[setting_index]
+                                        setting_value = setting[1]
+                                        typing = True
+                                        text_input = f'{setting_value}'
+                                        current_settings_blits[setting_index] = create_text_blit_full_(f'{setting[0]}: {text_input}', all_settings['setting text color'], 'setting', topleft=current_settings_blits[setting_index][1].topleft)
+
+                    if event.type == pygame.MOUSEMOTION:
+                        # This type of nesting is used to save calculations. Only execute the next one if the previous passed.
+
+                        if event.pos[1] > settings_start_position[1]:
+                            if event.pos[0] >= settings_start_position[0]:
+                                index = get_index()
+                                if event.pos[0] <= current_settings_blits[index][1].width + settings_start_position[0]:
+                                    setting_description_blit = (current_settings_descriptions_blits[index])
+                                    setting_description_drawer = draw_setting_description
+
+                                # Remake this noop logic
+                                
+                                else:
+                                    setting_description_drawer = noop
+                            else:
+                                setting_description_drawer = noop
+                        else:
+                            setting_description_drawer = noop
+                
+                
+                screen.fill(background_color)
+                for setting_blit in current_settings_blits:
+                    screen.blit(setting_blit[0], (setting_blit[1].x, setting_blit[1].y + settings_viewer_position[1]))
+
+                pygame.draw.rect(screen, setting_next_page_button_color, setting_next_page_blit[1])
+                screen.blit(*setting_next_page_blit)
+                pygame.draw.rect(screen, setting_previous_page_button_color, settings_previous_page_blit[1])
+                screen.blit(*settings_previous_page_blit)
+                pygame.draw.rect(screen, apply_settings_button_color, apply_settings_blit[1])
+                screen.blit(*apply_settings_blit)
+
+                screen.blit(*switch_settings_mode_blit)
+                setting_description_drawer()
+
+                cursor_drawer()
+                pygame.display.flip()
+                fps_clock.tick()
+
+        # Need to draw it only once, since it's pretty much a static image
 
         while actions[0] == [] and any(alive):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    for i in range(len(alive)):
-                        exit()
+                    clean_exit()
                 if event.type == pygame.KEYDOWN:
-                    if event.key == quit_key:
-                        for i in range(len(alive)):
-                            exit()
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_w]:
-                for snake_index in range(snakes_count):
-                    actions[snake_index].append(0)
-                    move(moves[snake_index][0], snake_index)
-                    snake_head_changer(0)
-                break
-            if keys[pygame.K_a]:
-                for snake_index in range(snakes_count):
-                    actions[snake_index].append(1)
-                    move(moves[snake_index][1], snake_index)
-                    snake_head_changer(1)
-                break
-            if keys[pygame.K_s]:
-                for snake_index in range(snakes_count):
-                    actions[snake_index].append(2)
-                    move(moves[snake_index][2], snake_index)
-                    snake_head_changer(2)
-                break
-            if keys[pygame.K_d]:
-                for snake_index in range(snakes_count):
-                    actions[snake_index].append(3)
-                    move(moves[snake_index][3], snake_index)
-                    snake_head_changer(3)
-                break
 
+                    if event.key == quit_key:
+                        clean_exit()
+
+                    if event.key == move_up_key:
+                        for snake_index in range(snakes_count):
+                            actions[snake_index].append(0)
+                            move(moves[snake_index][0], snake_index)
+                            snake_head_changer(0)
+                    elif event.key == move_left_key:
+                        for snake_index in range(snakes_count):
+                            actions[snake_index].append(1)
+                            move(moves[snake_index][1], snake_index)
+                            snake_head_changer(1)
+                    elif event.key == move_down_key:
+                        for snake_index in range(snakes_count):
+                            actions[snake_index].append(2)
+                            move(moves[snake_index][2], snake_index)
+                            snake_head_changer(2)
+                    elif event.key == move_right_key:
+                        for snake_index in range(snakes_count):
+                            actions[snake_index].append(3)
+                            move(moves[snake_index][3], snake_index)
+                            snake_head_changer(3)
+                    elif open_settings_key:
+                        settings_menu()
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if settings_blit[1].colliderect(pygame.Rect(*event.pos, 1, 1)):
+                        settings_menu()
+            
             screen.fill(background_color)
-            screen.blit(*start_menu_text)
-            screen.blit(*version_text)
+            screen.blit(*start_menu_blit)
+            screen.blit(*version_blit)
+            screen.blit(*settings_blit)
+            cursor_drawer()
             pygame.display.flip()
 
             fps_clock.tick()
 
     # Needs to after we have gotten the game start time stamp
+
     if show_time:
         game_started_time = datetime.now()
         threading.Thread(target=create_time_blit, daemon=True).start()
+
+        if log:
+            log_action('time display initialized', 'INFO')
+
+    threading.Thread(target=notification_manager, daemon=True).start()
+
+    if log:
+        log_action('notification manager initialized', 'INFO')
 
     # Launching snake logic
 
@@ -1568,26 +1892,26 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             log_action('snake logic initialized', 'INFO')
 
         if audio and music:
-            if settings['playlist']:
+            if all_settings['playlist']:
                 threading.Thread(target=playlist, daemon=True).start()
 
                 # Just so that the playlist can launch at least a song, before we try to repeat it.
                 while not pygame.mixer.music.get_busy():
                     sleep(0.001)
-                repeat_song = settings['repeat song']
+                repeat_song = all_settings['repeat song']
             else:
-                pygame.mixer.music.play(-1, fade_ms=settings['music fade out'])
+                pygame.mixer.music.play(-1, fade_ms=all_settings['music fade out'])
 
             if log:
                 log_action('music initialized', 'INFO')
 
 
-        if settings['disable key inputs']:
+        if all_settings['disable key inputs']:
             key_handler = handle_pygame_quit_event
         else:
-            if settings['slower key inputs']:
+            if all_settings['slower key inputs']:
 
-                key_input_cycle_time = settings['key inputs cycle time']
+                key_input_cycle_time = all_settings['key inputs cycle time']
 
                 def thread_key_inputs():
                     '''Thread target for handling key inputs with a sleep in between to make them slower.'''
@@ -1652,13 +1976,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     # Save file management
 
-    rating_points_multiplier = settings['rating points multiplier']
-    rating_play_time_multiplier = settings['rating play time multiplier']
-    rating_points_portion = settings['rating points portion']
-    rating_play_time_portion = settings['rating play time portion']
+    rating_points_multiplier = all_settings['rating points multiplier']
+    rating_play_time_multiplier = all_settings['rating play time multiplier']
+    rating_points_portion = all_settings['rating points portion']
+    rating_play_time_portion = all_settings['rating play time portion']
     def rating_formula(points: int, play_time: float) -> int:
         '''
-        Calculates the rating based on the points and play time, using the multipliers and portions from the settings. The result is rounded to the nearest integer. 
+        Calculates the rating based on the points and play time, using the multipliers and portions from the all_settings. The result is rounded to the nearest integer. 
         :param points: the points scored by the player in the game
         :type points: int
         :param play_time: the play time of the player in the game, in seconds
@@ -1672,7 +1996,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     play_time = play_times[0][1].total_seconds() # change this!
     rating = rating_formula(points, play_time)
 
-    def save_info(default_values: dict[str: dict[str: Any]] = {settings['name']: {'high score': points, 'lowest play time': play_time, 'best rating': rating}}, user_name: str = settings['name'], save_file_name: str | Path = '.save.json', temp_file_name: str | Path = '.save_temp.json') -> dict[str: Any]:
+    def save_info(default_values: dict[str: dict[str: Any]] = {all_settings['name']: {'high score': points, 'lowest play time': play_time, 'best rating': rating}}, user_name: str = all_settings['name'], save_file_name: str | Path = '.save.json', temp_file_name: str | Path = '.save_temp.json') -> dict[str: Any]:
         ''' Handles the save file management, creates a new save file if it doesn't exist, creates a new profile for the user if they haven't played before, and updates the user's save data with new stats if they are better than the previous ones.
         
         :param default_values: a dictionary containing the default save data for a user, used to create a new save file or a new profile for a user that hasn't played before
@@ -1735,22 +2059,22 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     # Remake this to use some central function.
 
     TEXT_SETTING_KEYS = ['bye', 'end screen high score', 'end screen best rating', 'end screen points', 'end screen rating']
-    text_sentences = [settings['lost text'] if all(crashes) else settings['quit text'], format_text(settings['end screen high score text'], settings['end screen high score text variable index'], user_save['high score'])]
+    text_sentences = [all_settings['lost text'] if all(crashes) else all_settings['quit text'], format_text(all_settings['end screen high score text'], all_settings['end screen high score text variable index'], user_save['high score'])]
     
     values = {'end screen best rating': user_save['best rating'], 'end screen points': points, 'end screen rating': rating}
     for setting in TEXT_SETTING_KEYS[len(text_sentences):]:
-        text_sentences.append(format_text(settings[f'{setting} text'], settings[f'{setting} text variable index'], values[setting]))
-    text_colors = [settings['lost text color'] if all(crashes) else settings['quit text color']]
+        text_sentences.append(format_text(all_settings[f'{setting} text'], all_settings[f'{setting} text variable index'], values[setting]))
+    text_colors = [all_settings['lost text color'] if all(crashes) else all_settings['quit text color']]
     for setting in TEXT_SETTING_KEYS[len(text_colors):]:
-        text_colors.append(settings[f'{setting} text color'])
+        text_colors.append(all_settings[f'{setting} text color'])
 
     texts = []
     for i in range(len(TEXT_SETTING_KEYS)):
-        texts.append(create_text_blit_(text_sentences[i], text_colors[i], scale_position_(settings[f'{TEXT_SETTING_KEYS[i]} text position']), TEXT_SETTING_KEYS[i] if i != 0 else ('lost' if all(crashes) else 'quit')))
+        texts.append(create_text_blit_(text_sentences[i], text_colors[i], scale_position_(all_settings[f'{TEXT_SETTING_KEYS[i]} text position']), TEXT_SETTING_KEYS[i] if i != 0 else ('lost' if all(crashes) else 'quit')))
 
 
-    if settings['show last frame on end screen']:
-        show_snake = settings['show last frame on end screen snake index']
+    if all_settings['show last frame on end screen']:
+        show_snake = all_settings['show last frame on end screen snake index']
         if type(show_snake) == list:
             for snake_index in show_snake:
                 alive[snake_index] = True
@@ -1763,7 +2087,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     else:
         draw_last_frame = noop
 
-    ending_screen = not settings['skip end screen']
+    ending_screen = not all_settings['skip end screen']
 
     # Need to draw it all only once, since nothing changes
 
@@ -1785,7 +2109,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     reboot_current_script()
         fps_clock.tick()
     
-    if log and not settings['skip end screen']:
+    if log and not all_settings['skip end screen']:
         log_action('end screen ended', 'INFO')
 
     def send_game_stats() -> None:
@@ -1796,7 +2120,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     game_stats_sender = noop if info_queues is None else send_game_stats
 
-    if settings['soft restart']:
+    if all_settings['soft restart']:
         while not keep_restarting.is_set():
             game_stats_sender()
             generate_game_values()
@@ -1806,9 +2130,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             game_left_cleanup()
             save_info()
 
-            
-    exiting_game.set() # So that any random errors, don't appear.
-    pygame.quit() # Shutdowns all pygame subprocesses
+    clean_exit(False)
     
     # Quits all the threads. These needs to be after the pygame quits
 

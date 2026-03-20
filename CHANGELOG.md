@@ -52,3 +52,24 @@
 - Refactored and cleaned up most of the documentation to improve user onboarding.
 - Upgraded the development version release process to an automatic and consistent system for enhanced release experience.
 - Removed the second 10000 runs archived file, it isn't needed, the first one without all of the play times written is enough.
+
+---
+
+## [0.26.0-Build.0] - 2026-03-20
+
+### Added
+- A clean and easy way to develop new blittable texts `simple_text_blit`, for developers.
+- A safe and clean alternative to exiting the game
+- A custom animated cursor, with the ability to add your own and customize it.
+- A settings menu, in the start menu to able to change settings. Will be improved in the future!
+
+### Changed
+- Optimized the start menu, to use less resources.
+- The start menu text to reflect actual keybinds the user is using.
+- Moved all start ups to be after the start menu, just in case user quits.
+- Removed the timestamp from the commit message.
+- Settings now accept both special key names (e.g., `kp_plus`) and standard keys (e.g., `j`).
+
+### Fixed
+- SETTINGS.md url in the README.
+- Fixed the inability to switch from a special key, like the `kp_plus` to an average key, like `j`

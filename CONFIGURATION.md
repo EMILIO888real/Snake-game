@@ -1,7 +1,5 @@
 # Configuration
 
-The game can be customized through a variety of configuration options that control aspects such as gameplay mechanics, visual presentation, audio settings, and performance monitoring. Below is a comprehensive list of these options along with their default values:
-
 1. **sector size**: Grid cell dimensions in pixels [width, height] (default: `[40, 40]`)
 2. **step**: Movement increment per update cycle (default: `4`)
 3. **increase jumps with increasing ups**: Whether jumps increase with UPS changes (default: `false`)
@@ -88,7 +86,6 @@ The game can be customized through a variety of configuration options that contr
 84. **volume notification text italic**: Italic style for volume notification (default: `null`)
 85. **volume notification text position**: Volume notification position normalized [x, y] (default: `[0.9, 0.5]`)
 86. **volume notification text variable index**: Variable index in volume notification (default: `0`)
-87. **snake bot delay**: AI snake decision delay in seconds (default: `0.0`)
 88. **collision between snakes**: Enable snake-to-snake collision (default: `true`)
 89. **eating sfx**: Sound effect for eating food (default: `"eating.mp3"`)
 90. **lose sfx**: Sound effect for losing game (default: `"random"`)

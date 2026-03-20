@@ -20,6 +20,8 @@ If you aren't familiar with Python projects, check out [Extra notes](#extra-note
   - [Settings](#settings)
   - [Config](#config)
   - [⚠️ Important Notes about Settings](#️-important-notes-about-settings)
+  - [How to add your own mouse cursor](#how-to-add-your-own-mouse-cursor)
+  - [Blit positioning](#blit-positioning)
 - [Simple bot](#simple-bot)
   - [Simple bot settings](#simple-bot-settings)
   - [Important notes about the simple bot settings](#important-notes-about-the-simple-bot-settings)
@@ -59,7 +61,10 @@ Use wasd to move the snake around the screen. Eat the food to grow longer and ga
 - **LALT + r**: Repeat current song indefinitely
 - **y**: Restart the game
 - **u**: Toggle stopwatch
-- **Home** Exits soft restarting mode
+- **Home**: Exits soft restarting mode
+- **c**: opens the settings menu
+- **KP +**: to go to the next settings page
+- **KP -**: to go to the previous settings page
 
 *(hold key)*: just indicates that it is a key you can hold, not need to necessarily
 
@@ -127,6 +132,24 @@ See [CONFIGURATION.md](./CONFIGURATION.md) for detailed information on game conf
 
 > **These constraints are critical for proper game functionality. Incorrect values may cause visual glitches or movement issues.**
 
+### How to add your own mouse cursor
+To add a custom mouse cursor, create a folder with your cursor name in `.images/cursors`. There are 2 example cursors available—one static and one animated.
+
+For **animated cursors**: Add each animation frame as a separate image and name them sequentially starting from `0` (e.g., `0.png`, `1.png`, `2.png`, etc.). The numbering must start at `0` and cannot begin at a higher index.
+
+For **static cursors**: Add a single image to the folder and name it `0.png`.
+
+After setting up your cursor folder, update the `mouse cursor` setting in `settings.json` to match your cursor folder's name.
+
+### Blit positioning
+
+The game uses two positioning systems for blitting:
+
+- **Top-left positioning**: Performance stats, settings menu items
+- **Center positioning**: All other UI elements
+
+Keep this distinction in mind when setting blit positions.
+
 ## Simple bot
 There is a simple bot included in the `bots` folder named `simple bot.py`, it is a simple algorithm launcher and tester, where you can see and check out how to utilize the queue system, and also test out some simple algorithms, relies on the algorithms in the `algorithms.py` file. You can also use it to test out your own algorithms, by importing them into the `algorithms.py` file and then launching them from the `simple bot.py` file. It also comes with settings that you can change to change how the bot performs.
 
@@ -146,17 +169,11 @@ There is a simple bot included in the `bots` folder named `simple bot.py`, it is
 - **If you are experiencing problems with the algorithms they seem to do very badly, it's possible that the game is running to quickly for the bot, in that case decrease the UPS of the game via the `UPS` setting, or you can also enable the `wait for bot` setting.**
 
 ## In future updates
+1. Upgrading settings menu
 1. Add the automatic report sending, by using the Gofile api.
 1. Add a setting to the `simple bot` to be able to run multiple snake games at the same time.
-1. Add a version blit to the start menu.
-1. Change the writing system to use atomic writes. Create this function and add it to `et`
-1. Add a way to soft restart the app, instead of importing everything and regenerating and what not, just reset some key values.
-1. Add a setting to disable the GUI
-1. Cook up the slowed performance show, by using another thread to create blits, only create them so often while the GUI loops, just blits the one that is available to it, use the same logic for the time display as well.
 1. Flesh out the resizable mode, for the window.
-1. Possibly optimize or rework the time display.
 1. Possibly add `njit` from `numba` to compile parts of the game like the game's update logic.
-1. Add automatic error report sending to a some kind of web server or place over the internet.
 1. Add some setting for True multithreading or paralelism (Multiprocessing)
 1. Add an option to see frame time, instead of just fps and ups, but also time.
 2. For the raw time simply create a new text blittable separate form the performance one.
