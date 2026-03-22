@@ -1,3 +1,9 @@
+## [0.27.1-Build.0] - 2026-03-22
+
+### Fixed
+- Documentation for function parameters. A Sequence object can contain only 1 argument.
+- Moved requests module import inside the function itself, since the function isn't used in the game.
+
 ## [0.27.0-Build.0] - 2026-03-22
 
 ### Added

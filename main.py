@@ -269,7 +269,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     def snake_head_noop(var):
         pass
 
-    def scale_image(image: pygame.Surface, size: Sequence[int, int] = sector_size) -> pygame.Surface:
+    def scale_image(image: pygame.Surface, size: Sequence[int] = sector_size) -> pygame.Surface:
             return pygame.transform.scale(image, size)
 
     image_assets = all_settings['use image assets']
@@ -878,7 +878,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             1 command is a sequence of 2 integers, first is the snake index, second is the command.
             '''
 
-            received_command: Sequence[int, int] = commands_queue.get()
+            received_command: Sequence[int] = commands_queue.get()
 
             snake_index = received_command[0]
             command = received_command[1]
