@@ -57,12 +57,13 @@
     "GUI": true,
     "disable soft restart key": "home",
     "crash game key": "end",
-
-    "quit settings key": "s",
+    "apply settings key": "s",
     "scrollwheel speed": 30,
     "custom cursor": true,
     "open settings key": "c",
     "switch setting section key": "z",
     "next settings page key": "kp_plus",
-    "previous settings page key": "kp_minus"
+    "previous settings page key": "kp_minus",
+    "draw special effects": true,
+    "special effects key": "f1"
 }

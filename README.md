@@ -3,12 +3,6 @@ Made by your's truly. [github](https://github.com/EMILIO888real/Snake-game)
 
 If you aren't familiar with Python projects, check out [Extra notes](#extra-notes) at the bottom of this README.
 
-## Warning
-1. If you encounter any errors or problems be sure to check the terminal, in case the error handler caught it, if so please send the error report to a developer via Discord or Github
-2. If you are on **windows** you should check if the `slower key inputs` setting works for your system, by default it is disabled on windows via the `compatibility` setting.
-3. For **windows** users, the newest python version available for this project is **3.12**, since pygame doesn't support any version above 3.12. Unless you can find a way to install pygame for newer versions successfully.
-4. If you are on **windows** and are experiencing inconsistent frame times, try changing the `busy_loop_threshold` setting to a higher value, for example `0.01`, this will make the clock bust wait more, which can help with inconsistent frame times on some systems. You can experiment with different values to find the best one for your system. For windows users, the default value is `0.001`, set via the compatibility.
-
 ## Contents
 - [Installation](#installation)
 - [How to play](#how-to-play)
@@ -52,21 +46,30 @@ Use wasd to move the snake around the screen. Eat the food to grow longer and ga
 - **Q**: Quit the game
 - **ESC or SPACE**: Pause/unpause the game
 - **G**: Toggle grid lines
-- **~**: Toggle performance stats display
+- **`**: Toggle performance stats display
 - **F**: Forward music track
 - **B**: Backward music track
 - **KP + or mouse wheel up**: Music volume up *(hold key)*
 - **KP - or mouse wheel down**: Music volume down *(hold key)*
-- **r**: Queue current song
+- **R**: Queue current song
 - **LALT + r**: Repeat current song indefinitely
-- **y**: Restart the game
-- **u**: Toggle stopwatch
+- **Y**: Restart the game
+- **U**: Toggle stopwatch
 - **Home**: Exits soft restarting mode
-- **c**: opens the settings menu
+- **C**: opens the settings menu
 - **KP +**: to go to the next settings page
 - **KP -**: to go to the previous settings page
+- **Z**: switch setting section key
+- **S**: apply settings key
+- **END**: crash the game
+- **F1**: enable/disable special effects
+
 
 *(hold key)*: just indicates that it is a key you can hold, not need to necessarily
+
+## Warning
+1. If you encounter any errors or problems be sure to check the terminal, in case the error handler caught it, if so please send the error report to a developer via Discord or Github.
+2. For **windows** users, the newest python version available for this project is **3.12**, since pygame doesn't support any version above 3.12. Unless you can find a way to install pygame for newer versions successfully.
 
 ## Features
 - Classic snake gameplay with modern twists.
@@ -129,6 +132,9 @@ See [CONFIGURATION.md](./CONFIGURATION.md) for detailed information on game conf
 - **If you change the color style or color scheme setting you must delete the .colors.txt file in the CWD, to apply changes.**
 - **snake bot delay setting possibly doesn't work and will most likely decrease performance. Do calculations before setting it for best compatibility!**
 - **For project fonts, don't use bold/italic settings; instead, select the font variant with the desired style in its name.**
+- **Compatibility mode on windows changes these settings**:
+   - `slower key inputs` to `False`
+   - `busy loop threshold` to `0.001`
 
 > **These constraints are critical for proper game functionality. Incorrect values may cause visual glitches or movement issues.**
 
@@ -166,7 +172,7 @@ There is a simple bot included in the `bots` folder named `simple bot.py`, it is
 - **ups**: Updates per second for the game itself (default: `800`)
 
 ### Important notes about the simple bot settings
-- **If you are experiencing problems with the algorithms they seem to do very badly, it's possible that the game is running to quickly for the bot, in that case decrease the UPS of the game via the `UPS` setting, or you can also enable the `wait for bot` setting.**
+- **If you are experiencing problems with the algorithms they seem to do very badly, it's possible that the game is running too quickly for the bot, in that case decrease the UPS of the game via the `UPS` setting, or you can also enable the `wait for bot` setting.**
 
 ## In future updates
 1. Upgrading settings menu

@@ -2,9 +2,7 @@
 Snake game made in python with pygame. Made by your's truly. Check README.md for more info and instructions. If you want to contribute, report a bug, or just want to chat about the game check out the github repo, links in the README.md!
 '''
 
-from ast import literal_eval
 from datetime import datetime, timedelta
-from math import ceil, floor
 
 import_time = datetime.now()
 
@@ -21,6 +19,8 @@ from time import perf_counter, sleep
 from os import fsync, listdir, _exit
 from decimal import Decimal
 from traceback import print_exception, format_exception
+from ast import literal_eval
+from math import ceil
 
 # from numba import njit # Add this later for some extra performance. Might not be possible due to new and well made syntax
 
@@ -134,21 +134,48 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             all_settings['slower key inputs'] = False
             all_settings['busy loop threshold'] = 0.001
 
+    
+
+    gui: bool = all_settings['GUI']
+    log: bool = all_settings['log'] # Has to be here
 
     if not all_settings['fullscreen']:
         screen_size: list[int] = all_settings['screen size'] # Resolution should be able to cleanly divisible by the sector size, x to x and y to y. (x, y)
-    background_color: list[int] = all_settings['background color']
-    grid_lines_color: list[int] = all_settings['grid lines color']
-    fps: int = all_settings['fps']
-    ups: int = all_settings['ups']
-    if ups == 'max speed':
-        ups = 887
-    log: bool = all_settings['log']
-    gui: bool = all_settings['GUI']
 
-    if not gui:
+    if gui:
+        if all_settings['borderless']:
+            flag = pygame.NOFRAME
+        elif all_settings['resizable window']:
+            flag = pygame.RESIZABLE
+        else:
+            flag = 0
+
+        if all_settings['fullscreen']:
+            screen = pygame.display.set_mode(flags=pygame.FULLSCREEN | flag)
+            screen_size = screen.get_size()
+        else:
+            screen = pygame.display.set_mode(screen_size, flag)
+        
+        # Create a transparent surface the size of the screen
+        overlay = pygame.Surface(screen_size, pygame.SRCALPHA)
+
+
+        # Needs to run after setting display mode!
+        pygame.display.set_caption(all_settings['window name'])
+        pygame.display.set_icon(pygame.image.load(f'.images/icons/{all_settings['icon name']}').convert_alpha())
+
+        if log:
+            log_action('gui initialized', 'INFO')
+    else:
         all_settings['skip start menu'] = True
         all_settings['skip end screen'] = True
+
+
+    background_color: list[int] = all_settings['background color']
+    fps: int = all_settings['fps']
+    ups: int = all_settings['ups']
+    if ups == 'max speed': # So that we can still create the clock object
+        ups = 887
 
     sector_size: list[int] = all_settings['sector size'] # Needs to be able to cleanly divisible by steps
     step: int = all_settings['step'] # Needs to be able to cleanly divisible by sector size, both x and y. If you change this while the script is running be sure to recalculate steps
@@ -226,27 +253,6 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     pygame.init()
 
-    if gui:
-        if all_settings['borderless']:
-            flag = pygame.NOFRAME
-        elif all_settings['resizable window']:
-            flag = pygame.RESIZABLE
-        else:
-            flag = 0
-
-        if all_settings['fullscreen']:
-            screen = pygame.display.set_mode(flags=pygame.FULLSCREEN | flag)
-            screen_size = screen.get_size()
-        else:
-            screen = pygame.display.set_mode(screen_size, flag)
-
-        pygame.display.set_caption(all_settings['window name'])
-
-
-        if log:
-            log_action('gui initialized', 'INFO')
-    
-
     fps_clock = Advanced_clock(fps)
     ups_clocks = [Advanced_clock(ups) for _ in range(snakes_count)]
     snakes_ups = [ups for _ in range(snakes_count)]
@@ -290,6 +296,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             log_action('image assets loaded', 'INFO')
     else:
         snake_head_changer = snake_head_noop
+
 
     # generates a dictionary with all of the font objects
 
@@ -409,7 +416,8 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     if music_index == len(music_files):
                         music_index = 0
 
-                    create_notification(create_text_blit_(format_text(music_notification_text, music_notification_variable_index, music_name[:music_name.rfind('.')]), music_notification_text_color, music_notification_text_position, 'music notification'), 'music')
+                    notification_music_name = Path(music_name).name
+                    create_notification(create_text_blit_(format_text(music_notification_text, music_notification_variable_index, notification_music_name[:notification_music_name.rfind('.')]), music_notification_text_color, music_notification_text_position, 'music notification'), 'music')
 
             pygame.mixer.music.set_volume(master_volume * music_volume)
             if not all_settings['playlist']:
@@ -750,11 +758,12 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     stopwatch_key = get_key(all_settings['toggle stopwatch key'])
     disable_soft_restart_key = get_key(all_settings['disable soft restart key'])
     crash_key = get_key(all_settings['crash game key'])
-    quit_settings_key = get_key(all_settings['quit settings key'])
+    quit_settings_key = get_key(all_settings['apply settings key'])
     open_settings_key = get_key(all_settings['open settings key'])
     switch_setting_section_key = get_key(all_settings['switch setting section key'])
     next_settings_page_key = get_key(all_settings['next settings page key'])
     previous_settings_page_key = get_key(all_settings['previous settings page key'])
+    special_effects_key = get_key(all_settings['special effects key'])
 
     repeat_song = False
     queue_song = False # Just if the user decides to cancel action
@@ -772,12 +781,9 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     pause.clear() # Just in case user quits when paused
 
     def key_input_for():
-        '''
-        handles key inputs using a for loop
-        **Gets called each frame**!
-        '''
+        ''' handles key inputs using a for loop **Gets called each frame**! '''
 
-        nonlocal paused_drawer, draw_grid, grid_drawer, draw_performance, performance_drawer, play_last_song, master_volume, repeat_song, queue_song, show_time, time_drawer
+        nonlocal paused_drawer, draw_grid, grid_drawer, draw_performance, performance_drawer, play_last_song, master_volume, repeat_song, queue_song, show_time, time_drawer, show_special_effects, special_effects_drawer, crt_effect_thread
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -844,6 +850,12 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     keep_restarting.set()
                 elif event.key == crash_key:
                     raise NotImplementedError('Game crashed, because you pressed the crash button!')
+                elif event.key == special_effects_key:
+                    show_special_effects = not show_special_effects
+                    if show_special_effects and show_crt_special_effect and not crt_effect_thread.is_alive():
+                        crt_effect_thread = threading.Thread(target=draw_crt_screen, daemon=True)
+                        crt_effect_thread.start()
+                    special_effects_drawer = blit_special_effects if show_special_effects else noop
 
             if event.type == pygame.MOUSEWHEEL:
                 if audio and music:
@@ -1350,12 +1362,17 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     drawer = drawing_images if all_settings['use image assets'] else drawing
 
+
+
+    grid_lines_color: list[int] = all_settings['grid lines color']
+
     def draw_grid_lines():
         for sector in sectors:
             pygame.draw.rect(screen, grid_lines_color, (*sector, sector_size[0], sector_size[1]), grid_lines_width)
 
     draw_grid = all_settings['grid lines']
     grid_drawer = draw_grid_lines if draw_grid else noop
+
 
     def draw_paused():
         screen.blit(*paused_blittable)
@@ -1529,6 +1546,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     else:
         time_drawer = noop
 
+    def blit_special_effects():
+        ''' Draws the special effects to the screen. Special effects are drawn on an overlay surface, which is then blitted to the screen. This allows for effects that can be drawn on top of everything else, without affecting the drawing of the snakes, food, and other elements. '''
+        screen.blit(overlay, (0, 0)) # All special effect are on the overlay blit
+
+    show_special_effects = all_settings['draw special effects']
+    special_effects_drawer = blit_special_effects if show_special_effects else noop
+
     # Start menu
 
     if log:
@@ -1665,6 +1689,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                 reboot_current_script()
 
             def switch_settings_section():
+                ''' Switches the settings section between the user settings and the config settings. This is done by changing the current settings blits, descriptions, and last setting position to the other section's blits, descriptions, and last setting position. Also checks if the settings viewer position is out of bounds after switching, and if it is, it sets it to the last setting position of the new section. '''
 
                 nonlocal current_settings_blits, current_last_setting_position, current_settings_descriptions_blits, current_settings
 
@@ -1858,7 +1883,9 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
             fps_clock.tick()
 
-    # Needs to after we have gotten the game start time stamp
+
+
+    # Launch varies GUI related threads
 
     if show_time:
         game_started_time = datetime.now()
@@ -1867,10 +1894,131 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         if log:
             log_action('time display initialized', 'INFO')
 
+
     threading.Thread(target=notification_manager, daemon=True).start()
 
     if log:
         log_action('notification manager initialized', 'INFO')
+
+
+    if audio and music:
+        if all_settings['playlist']:
+            threading.Thread(target=playlist, daemon=True).start()
+
+            # Just so that the playlist can launch at least a song, before we try to repeat it.
+            while not pygame.mixer.music.get_busy():
+                sleep(0.001)
+            repeat_song = all_settings['repeat song']
+        else:
+            pygame.mixer.music.play(-1, fade_ms=all_settings['music fade out'])
+
+        if log:
+            log_action('music initialized', 'INFO')
+
+
+    if all_settings['disable key inputs']:
+        key_handler = handle_pygame_quit_event
+    else:
+        if all_settings['slower key inputs']:
+
+            key_input_cycle_time = all_settings['key inputs cycle time']
+
+            def thread_key_inputs():
+                '''Thread target for handling key inputs with a sleep in between to make them slower.'''
+
+                while any(alive):
+                    key_inputs()
+                    sleep(key_input_cycle_time)
+
+            threading.Thread(target=thread_key_inputs, daemon=True).start()
+            key_handler = noop
+        else:
+            key_handler = key_inputs
+
+        if log:
+            log_action('key inputs initialized', 'INFO')
+
+
+        threading.Thread(target=slow_key_inputs, daemon=True).start()
+
+        if log:
+            log_action('slow key inputs initialized', 'INFO')
+
+
+    if gui:
+
+        show_crt_special_effect = all_settings['show crt special effect']
+        special_effects_cycle_time = all_settings['special effects cycle time']
+        crt_lines_count = all_settings['crt lines count']
+        crt_background_color = all_settings['crt background color']
+
+        trailing_lines_color = all_settings['crt trailing lines color']
+        trailing_lines_width = all_settings['crt trailing lines width']
+        lines_color = all_settings['crt lines color']
+        lines_width = all_settings['crt lines width']
+
+        crt_down_times = all_settings['crt down times']
+        crt_less_down_times = all_settings['crt less down times']
+        crt_stationary_times = all_settings['crt stationary times']
+        crt_less_up_times = all_settings['crt less up times']
+        crt_up_times = all_settings['crt up times']
+        crt_amount_up = all_settings['crt amount up']
+        crt_less_amount_up = all_settings['crt less amount up']
+        crt_less_amount_down = all_settings['crt less amount down']
+        crt_amount_down = all_settings['crt amount down']
+
+        def draw_crt_screen():
+            ''' Draws the CRT screen effect on the overlay surface. The effect is drawn by drawing horizontal lines across the screen, with a certain spacing between them, and then moving them down the screen over time. '''
+
+            def draw_crt_lines(move_amount: int):
+                '''
+                Draws the CRT lines on the overlay surface, and moves them down the screen by the move_amount. The lines are drawn by drawing a rectangle with the crt_background_color, and then drawing lines with the trailing_lines_color and lines_color at the positions specified in the pos list. After drawing the lines, it sleeps for the special_effects_cycle_time, and then moves the lines down by the move_amount. If a line goes off the screen, it wraps around to the other side. 
+                
+                :param move_amount: the amount to move the lines down the screen, in pixel
+                :type move_amount: int
+                '''
+    
+                pygame.draw.rect(overlay, crt_background_color, (0, 0, screen_size[0], screen_size[1]))
+                for i in range(crt_lines_count):
+                    pygame.draw.line(overlay, trailing_lines_color, (0, pos[i] - 8), (screen_size[0], pos[i] - 8), trailing_lines_width)
+                    pygame.draw.line(overlay, lines_color, (0, pos[i]), (screen_size[0], pos[i]), lines_width)
+
+                sleep(special_effects_cycle_time)
+
+                for i in range(crt_lines_count):
+                    pos[i] += move_amount
+                    if pos[i] > screen_size[1]:
+                        pos[i] = 0
+                    elif pos[i] < 0:
+                        pos[i] = screen_size[1]
+
+            pos = [i for i in range(0, screen_size[1], screen_size[1] // crt_lines_count)]
+
+            while show_crt_special_effect:
+
+                for _ in range(crt_down_times):
+                    draw_crt_lines(crt_amount_up)
+
+                for _ in range(crt_less_down_times):
+                    draw_crt_lines(crt_less_amount_up)
+                
+                sleep(special_effects_cycle_time * crt_stationary_times)
+
+                for _ in range(crt_less_up_times):
+                    draw_crt_lines(crt_less_amount_down)
+
+                for _ in range(crt_up_times):
+                    draw_crt_lines(crt_amount_down)
+
+        if show_special_effects:
+            if show_crt_special_effect:
+                crt_effect_thread = threading.Thread(target=draw_crt_screen, daemon=True)
+                crt_effect_thread.start()
+
+        if log:
+            log_action('special effects initialized', 'INFO')
+
+
 
     # Launching snake logic
 
@@ -1878,7 +2026,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     key_handler: Callable[[], None]
 
     def launch_game_threads():
-        ''' Launches all of the necessary threads for the game logic, like the snake movement threads, the playlist thread if the playlist setting is on, and the key inputs thread if the slower key inputs setting is on. '''
+        ''' Launches all of the necessary threads for the game logic, like the snake movement threads, as well as all other threads'''
 
         nonlocal snake_threads, repeat_song, key_handler
 
@@ -1891,47 +2039,6 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         if log:
             log_action('snake logic initialized', 'INFO')
 
-        if audio and music:
-            if all_settings['playlist']:
-                threading.Thread(target=playlist, daemon=True).start()
-
-                # Just so that the playlist can launch at least a song, before we try to repeat it.
-                while not pygame.mixer.music.get_busy():
-                    sleep(0.001)
-                repeat_song = all_settings['repeat song']
-            else:
-                pygame.mixer.music.play(-1, fade_ms=all_settings['music fade out'])
-
-            if log:
-                log_action('music initialized', 'INFO')
-
-
-        if all_settings['disable key inputs']:
-            key_handler = handle_pygame_quit_event
-        else:
-            if all_settings['slower key inputs']:
-
-                key_input_cycle_time = all_settings['key inputs cycle time']
-
-                def thread_key_inputs():
-                    '''Thread target for handling key inputs with a sleep in between to make them slower.'''
-
-                    while any(alive):
-                        key_inputs()
-                        sleep(key_input_cycle_time)
-
-                threading.Thread(target=thread_key_inputs, daemon=True).start()
-                key_handler = noop
-            else:
-                key_handler = key_inputs
-
-            if log:
-                log_action('key inputs initialized', 'INFO')
-
-            threading.Thread(target=slow_key_inputs, daemon=True).start()
-
-            if log:
-                log_action('slow key inputs initialized', 'INFO')
 
     launch_game_threads()
 
@@ -1950,6 +2057,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             performance_drawer()
             notification_drawer()
             time_drawer()
+            special_effects_drawer()
 
             pygame.display.flip()
             fps_clock.tick()
