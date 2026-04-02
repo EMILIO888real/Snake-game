@@ -53,7 +53,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     all_settings.update(config)
 
     version = [version[1] for version in read_json('.version.json').items()]
-    all_settings['version'] = f'{version[0]}.{version[1]}.{version[2]} B({version[3]})'
+    all_settings['version'] = f'{version[0]}.{version[1]}.{version[2]}'
 
     custom_error_message = all_settings['custom error message']
     generate_error_report = all_settings['generate error report']
