@@ -1,8 +1,27 @@
+## [0.28.0] - 2026-04-02
+
+### Added
+- Github releases for new version, fully automated as well.
+- rgb like panel to the crt screen effect
+- Options to customize the panel color, draw methods and properties
+- A local AI model to write version descriptions based on the changelog. As well as come up with a version code name *Changelog is still written by a human*
+
+### Changed
+- Removed the build version or the build number, since I wasn't using it like one and it isn't useful for this type of projects release anyways
+- Upgraded once again the publishing tool to be more automated and improved the new user experience
+
+### Fixed
+- To open the settings menu, you need to press the correct button now, accidentally wasn't bound to just that key.
+
+---
+
 ## [0.27.1-Build.0] - 2026-03-22
 
 ### Fixed
 - Documentation for function parameters. A Sequence object can contain only 1 argument.
 - Moved requests module import inside the function itself, since the function isn't used in the game.
+
+---
 
 ## [0.27.0-Build.0] - 2026-03-22
 

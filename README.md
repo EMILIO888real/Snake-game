@@ -1,5 +1,5 @@
 # Snake game
-Made by your's truly. [github](https://github.com/EMILIO888real/Snake-game)
+Made by your's truly. [Github](https://github.com/EMILIO888real/Snake-game)
 
 If you aren't familiar with Python projects, check out [Extra notes](#extra-notes) at the bottom of this README.
 
@@ -36,7 +36,7 @@ If you aren't familiar with Python projects, check out [Extra notes](#extra-note
    ```
 
 ## How to play
-Use wasd to move the snake around the screen. Eat the food to grow longer and gain points. Avoid running into yourself or the walls (unless portals are enabled).
+Use wasd to move the snake around the screen. Eat the food to grow longer and gain points. Avoid running into yourself.
 
 ## Default controls
 - **W**: Move up
@@ -88,9 +88,9 @@ To integrate a bot into the game, follow these steps:
    from queue import Queue
    from threading import Thread
    ```
-   *main is the main game function from `main.py`.*
+   *Note: `main` is the main game function from `main.py`. You can also use `multiprocessing.Queue`, but enable the `serialize data` setting.*
 
-3. **Launch the Game**: Start the game on a separate thread, using two Queues for communication—one for sending snake direction commands and another for receiving the positions of the snake and food, as shown below:
+3. **Launch the Game**: Start the game on a separate thread or process, using two Queues for communication—one for sending snake direction commands and another for receiving the positions of the snake and food, as shown below:
    ```python
    info_queue = [Queue()]
    commands_queue = Queue()
@@ -111,7 +111,7 @@ Note: there is an example bot included in the `bots` folder named `example bot.p
 ## How to use the queue system
 The game uses a queue-based system for communication between the main game loop and bots:
 
-- **Info Queue** (game → bot): Sends snake and food positions as `pygame.Rect` objects, plus all game settings at startup. Also sends status codes: `-1` (user quit), `-2` (snake crashed), `-3` (game error). After the code it also sends basic stats like points and playtime time and rating for that game specifically.
+- **Info Queue** (game → bot): Sends snake and food positions as `pygame.Rect` objects, plus all game settings at startup. Also sends status codes: `-1` (user quit), `-2` (snake crashed), `-3` (game error). After the code it also sends basic stats like points and playtime time and rating for that game specifically. If 
 - **Commands Queue** (bot → game): Receives movement commands: `0` (up), `1` (left), `2` (down), `3` (right), `4` (quit), `5` (pause all snakes), `6` (exits soft restarting mode).
 
 Your bot reads the game state from the info queue and sends movement commands through the commands queue.

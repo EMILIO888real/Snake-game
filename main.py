@@ -9,7 +9,7 @@ import_time = datetime.now()
 import pygame
 import sys # So we can access the exception hook
 import threading
-from random import randint
+from random import choice, randint
 from itertools import cycle
 from pathlib import Path
 from json import load, dump
@@ -1867,7 +1867,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                             actions[snake_index].append(3)
                             move(moves[snake_index][3], snake_index)
                             snake_head_changer(3)
-                    elif open_settings_key:
+                    elif event.key == open_settings_key:
                         settings_menu()
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
@@ -1967,6 +1967,48 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         crt_less_amount_down = all_settings['crt less amount down']
         crt_amount_down = all_settings['crt amount down']
 
+        if all_settings['crt background rgb panel']:
+            background_mesh_grid_colors = all_settings['crt background rgb panel color']
+            if type(background_mesh_grid_colors) == int:
+                color_count = background_mesh_grid_colors
+                background_mesh_grid_colors = []
+                for _ in range(color_count):
+                    background_mesh_grid_colors.append([randint(0, 255), randint(0, 255), randint(0, 255)])
+            if all_settings['crt background rgb panel draw sequentially']:
+                background_mesh_grid_colors = cycle(background_mesh_grid_colors)
+                def get_pixel_color():
+                    return next(background_mesh_grid_colors)
+            else:
+                def get_pixel_color():
+                    return choice(background_mesh_grid_colors)
+
+                
+            crt_background_rgb_panel_transparency = all_settings['crt background rgb panel transparency']
+            p_x, p_y = all_settings['crt background rgb panel pixel size']
+
+            background_mesh_grid = pygame.Surface(screen_size, pygame.SRCALPHA)
+
+            # Define the ranges based on priority
+            range_x = range(0, screen_size[0], p_y)
+            range_y = range(0, screen_size[1], p_x)
+
+            # Determine the loop nesting order
+            loops = (range_x, range_y) if all_settings['crt background rgb panel x axis priority'] else (range_y, range_x)
+
+            # Iterate (Note: x/y assignment depends on the loop order)
+            for outer in loops[0]:
+                for inner in loops[1]:
+                    # If order matters for the variables themselves:
+                    x, y = (outer, inner) if loops[0] == range_x else (inner, outer)
+                    
+                    pygame.draw.rect(background_mesh_grid, [*get_pixel_color(), crt_background_rgb_panel_transparency], [x, y, p_x, p_y])
+
+            def draw_crt_background():
+                overlay.blit(background_mesh_grid, (0, 0))
+        else:
+            def draw_crt_background():
+                overlay.fill(crt_background_color)
+
         def draw_crt_screen():
             ''' Draws the CRT screen effect on the overlay surface. The effect is drawn by drawing horizontal lines across the screen, with a certain spacing between them, and then moving them down the screen over time. '''
 
@@ -1977,8 +2019,9 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                 :param move_amount: the amount to move the lines down the screen, in pixel
                 :type move_amount: int
                 '''
-    
-                pygame.draw.rect(overlay, crt_background_color, (0, 0, screen_size[0], screen_size[1]))
+
+                draw_crt_background()
+
                 for i in range(crt_lines_count):
                     pygame.draw.line(overlay, trailing_lines_color, (0, pos[i] - 8), (screen_size[0], pos[i] - 8), trailing_lines_width)
                     pygame.draw.line(overlay, lines_color, (0, pos[i]), (screen_size[0], pos[i]), lines_width)

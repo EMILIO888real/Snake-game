@@ -1215,7 +1215,7 @@ def safe_replace(src: str | Path, dst: str | Path) -> None:
         except PermissionError:
             pass
 
-def upload_for_sharing(file_path: str | Path, api_token: str, folder_id: str):
+def upload_for_sharing(file_path: str | Path, api_token: str, folder_id: str) -> dict | str:
     '''
     Uploads a file to gofile.io and returns the response as a dictionary.
 
@@ -1229,22 +1229,33 @@ def upload_for_sharing(file_path: str | Path, api_token: str, folder_id: str):
 
     from requests import get, post
 
-    # Step 1: get server
-
-    server_resp = get('https://api.gofile.io/servers')
-    server = server_resp.json()['data']['servers'][0]['name']
-
-    # Step 2: upload file
-    url = f'https://{server}.gofile.io/uploadFile'
-    headers = {'Authorization': f'Bearer {api_token}'}
-    files = {'file': open(file_path, 'rb')}
-
-    response = post(url, headers=headers, files=files, data={'folderId': folder_id})
+    response = post(f'https://{get('https://api.gofile.io/servers').json()['data']['servers'][0]['name']}.gofile.io/uploadFile', headers={'Authorization': f'Bearer {api_token}'}, files={'file': open(file_path, 'rb')}, data={'folderId': folder_id})
 
     if response.headers.get('content-type','').startswith('application/json'):
         return response.json()
     else:
         return f'Unexpected response: {response.text}'
+
+def delete_upload(file_id: str, api_token: str) -> str:
+    '''Deletes an uploaded file from gofile.io using the file ID and API token.
+    
+    :param file_id: The ID of the file to be deleted.
+    :type file_id: str
+    :param api_token: The API token for authentication.
+    :type api_token: str
+    :return: A message indicating the result of the delete operation, or an error message if the response is not JSON.
+    :rtype: str
+    '''
+
+    from requests import delete
+
+    response = delete(f'https://api.gofile.io/contents', headers={'Authorization': f'Bearer {api_token}'}, json={'contentsId': file_id})
+
+    if response.headers.get('content-type','').startswith('application/json'):
+        return response.json()
+    else:
+        return f'Unexpected response: {response.text}'
+
 
 if __name__ == '__main__':
     # print('This module is not meant to be run directly')
