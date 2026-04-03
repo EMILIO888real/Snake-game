@@ -1,3 +1,10 @@
+## [0.29.4] - 2026-04-03
+
+### Fixed
+- Added write permissions to the GitHub workflow.
+
+---
+
 ## [0.29.3] - 2026-04-03
 
 ### Fixed
