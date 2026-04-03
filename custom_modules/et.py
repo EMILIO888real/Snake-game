@@ -57,7 +57,7 @@ for more info use info(func) function on specific methods
 
 import sys
 from collections.abc import Collection
-from os import execl, replace, listdir, mkdir
+from os import execl, path, replace, listdir, mkdir
 from threading import Event # This is used for 2 functions in this module (loading_terminal_animation, character_loading_animation)
 from typing import Any, Callable, Optional
 from pathlib import Path
@@ -1255,6 +1255,45 @@ def delete_upload(file_id: str, api_token: str) -> str:
         return response.json()
     else:
         return f'Unexpected response: {response.text}'
+
+def resource_path(relative_path: str) -> str:
+    ''' Gets the absolute path to a resource, works for both development and PyInstaller bundle.'''
+    if hasattr(sys, '_MEIPASS'):
+        # Running from PyInstaller bundle
+        return path.join(sys._MEIPASS, relative_path)
+    # Running normally
+    return path.join(Path('.').absolute(), relative_path)
+
+
+def tree(path: str | Path, exclusions: Optional[Collection] = ()) -> dict:
+    '''
+    Generates a nested dictionary representing the directory structure of the specified path, excluding any files or directories listed in the exclusions parameter.
+
+    :param path: The root directory path to represent as a tree
+    :type path: str | Path
+    :param exclusions: A collection of file or directory names to exclude from the tree representation
+    :type exclusions: Collection[str]
+    :return: A nested dictionary representing the directory structure of the specified path, excluding any files or directories listed in the exclusions parameter
+    :rtype: dict
+    '''
+
+    def iterate_dir(path: str):
+        
+        children = {'files': []}
+        for entry in sorted(Path(path).iterdir(), key=lambda p: p.name):
+            if entry.name not in exclusions:
+                if Path(entry).is_file():
+                    children['files'].append(entry.name)
+                else:
+                    children[entry.name] = iterate_dir(entry)
+        if children['files'] == []:
+            children.pop('files')
+
+        return children
+
+    iterate_dir(path)                
+
+    return iterate_dir(path)
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@ Snake game made in python with pygame. Made by your's truly. Check README.md for
 '''
 
 from datetime import datetime, timedelta
+from pprint import pprint
 
 import_time = datetime.now()
 
@@ -22,9 +23,10 @@ from traceback import print_exception, format_exception
 from ast import literal_eval
 from math import ceil
 
+
 # from numba import njit # Add this later for some extra performance. Might not be possible due to new and well made syntax
 
-from custom_modules.et import color_generator, format_time, read_json, merge_settings, log_action as _log_action, create_log_message, format_text, print_colored_text, reboot_current_script, noop, launch_in_new_terminal, safe_replace
+from custom_modules.et import color_generator, format_time, read_json as _read_json, merge_settings, log_action as _log_action, create_log_message, format_text, print_colored_text, reboot_current_script, noop, launch_in_new_terminal, safe_replace, resource_path, tree
 from custom_modules.ege import create_text_blit, scale_position, rect_to_tuple
 
 import_time = datetime.now() - import_time
@@ -39,12 +41,63 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     :type commands_queue: Optional[Queue]
     '''
 
+    def read_json(file_name: str, default_values: Optional[dict] = {}, indent: int = 4) -> dict:
+        ''' Reads a json file and returns its contents as a dictionary. If the file doesn't exist, it creates it with the default values and returns the default values.
+        
+        :param file_name: the name of the json file to read
+        :type file_name: str
+        :param default_values: the default values to write to the file if it doesn't exist, defaults to an empty dictionary
+        :type default_values: Optional[dict]
+        :param indent: the number of spaces to use for indentation when writing the default values to the file, defaults to 4
+        :type indent: int
+        :return: the contents of the json file as a dictionary, or the default values if the file didn't exist
+        :rtype: dict
+        '''
+        return _read_json(resource_path(file_name), default_values, indent)
+    
+    # Checks the integrity of the whole project
+
+    if not Path(resource_path('.assets/.integrity.json')).exists():
+        print_colored_text('Missing integrity file! Please make sure you have all the files and try again. If you are sure you have all the files, please report this to a developer via Discord or Github!', [255, 0, 0])
+        exit()
+
+    integrity_cwd = read_json('.assets/.integrity.json')['CWD']
+    cwd = tree(resource_path('.'))
+
+    missing = []
+    def check_dicts(integrity_dict: dict, user_dict):
+        for key in integrity_dict:
+
+            integrity_item = integrity_dict[key]
+            user_item = user_dict.get(key)
+            if user_item == None:
+                missing.append(set([key]))
+                continue
+
+            if type(integrity_item) == list:
+                integrity_item = set(integrity_item)
+                user_item = set(user_item)
+            else:
+                check_dicts(integrity_item, user_item)
+
+            if type(user_item) == set and type(integrity_item) == set:
+                if not integrity_item.issubset(user_item) :
+                    missing.append(integrity_item - user_item)
+
+    check_dicts(integrity_cwd, cwd)
+    together_missing = set()
+    for item in missing:
+        together_missing = together_missing.union(item)
+    
+    if together_missing != set():
+        print_colored_text(f'Warning! Missing files or directories: {together_missing}', [255, 222, 33])
+
     # Reads and initializes settings
 
-    default_settings = read_json('.default settings.json')
-    default_config = read_json('.default config.json')
+    default_settings = read_json('.assets/.default settings.json')
+    default_config = read_json('.assets/.default config.json')
 
-    user_settings: dict = read_json('settings.json', {'name': 'Joker'})
+    user_settings: dict = _read_json('settings.json', {'name': 'Joker'})
 
     settings = merge_settings(user_settings, default_settings)
     config = merge_settings(user_settings, default_config)
@@ -52,7 +105,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     all_settings: dict = settings.copy()
     all_settings.update(config)
 
-    version = [version[1] for version in read_json('.version.json').items()]
+    version = [version[1] for version in read_json('.assets/.version.json').items()]
     all_settings['version'] = f'{version[0]}.{version[1]}.{version[2]}'
 
     custom_error_message = all_settings['custom error message']
@@ -68,11 +121,8 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     sdl_version = pygame.get_sdl_version()
     error_report_sdl_version_text = format_text(all_settings['error report text sdl version'], all_settings['error report text sdl version variable index'], f'{sdl_version[0]}.{sdl_version[1]}.{sdl_version[2]}')
-    
-    integrity = read_json('.integrity.json')
-    integrity_cwd = set(integrity['CWD'])
-    cwd = set(listdir('.'))
-    error_report_integrity_text = format_text(all_settings['error report text integrity'], all_settings['error report text integrity variable index'], all_settings['error report text integrity successful'] if integrity_cwd.issubset(cwd) else format_text(all_settings['error report text integrity failed'], all_settings['error report text integrity failed variable index'], integrity_cwd - cwd))
+
+    error_report_integrity_text = format_text(all_settings['error report text integrity'], all_settings['error report text integrity variable index'], all_settings['error report text integrity successful'] if together_missing == set() else format_text(all_settings['error report text integrity failed'], all_settings['error report text integrity failed variable index'], together_missing))
 
     error_occurred = False
     exiting_game = threading.Event()
@@ -108,7 +158,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             print('error report generated at: "./error report.txt"')
             if not all_settings['log']:
                 print('Logging wasn\'t enabled, would you please enable it and re-run the program to encounter the error with logging enabled.')
-            if not launch_in_new_terminal(str(Path('error handler.py').absolute())):
+            if not launch_in_new_terminal(str(Path(resource_path('.assets/error handler.py')).absolute())):
                 print('No supported terminal emulator found. Please run "error handler.py" manually.')
 
 
@@ -134,56 +184,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             all_settings['slower key inputs'] = False
             all_settings['busy loop threshold'] = 0.001
 
-    
-
-    gui: bool = all_settings['GUI']
-    log: bool = all_settings['log'] # Has to be here
-
-    if not all_settings['fullscreen']:
-        screen_size: list[int] = all_settings['screen size'] # Resolution should be able to cleanly divisible by the sector size, x to x and y to y. (x, y)
-
-    if gui:
-        if all_settings['borderless']:
-            flag = pygame.NOFRAME
-        elif all_settings['resizable window']:
-            flag = pygame.RESIZABLE
-        else:
-            flag = 0
-
-        if all_settings['fullscreen']:
-            screen = pygame.display.set_mode(flags=pygame.FULLSCREEN | flag)
-            screen_size = screen.get_size()
-        else:
-            screen = pygame.display.set_mode(screen_size, flag)
-        
-        # Create a transparent surface the size of the screen
-        overlay = pygame.Surface(screen_size, pygame.SRCALPHA)
-
-
-        # Needs to run after setting display mode!
-        pygame.display.set_caption(all_settings['window name'])
-        pygame.display.set_icon(pygame.image.load(f'.images/icons/{all_settings['icon name']}').convert_alpha())
-
-        if log:
-            log_action('gui initialized', 'INFO')
-    else:
-        all_settings['skip start menu'] = True
-        all_settings['skip end screen'] = True
-
-
-    background_color: list[int] = all_settings['background color']
-    fps: int = all_settings['fps']
-    ups: int = all_settings['ups']
-    if ups == 'max speed': # So that we can still create the clock object
-        ups = 887
-
-    sector_size: list[int] = all_settings['sector size'] # Needs to be able to cleanly divisible by steps
-    step: int = all_settings['step'] # Needs to be able to cleanly divisible by sector size, both x and y. If you change this while the script is running be sure to recalculate steps
-
-    portals: bool = all_settings['portals']
-    eating_speed_up: bool = all_settings['eating speeds you up']
-    eating_speed_up_amount: int = all_settings['eating speed you up amount']
-    snakes_count: int = all_settings['snakes count']
+    log: bool = all_settings['log']
 
     if log:
         last_log_time = datetime.now()
@@ -210,6 +211,55 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         _log_action(format_text(all_settings['log text for new session'], all_settings['log new session text time var index'], datetime.now()))
         log_action(f'import time: {import_time}', 'INFO')
         log_action('all_settings loaded', 'INFO')
+
+
+    gui: bool = all_settings['GUI']
+
+    if not all_settings['fullscreen']:
+        screen_size: list[int] = all_settings['screen size'] # Resolution should be able to cleanly divisible by the sector size, x to x and y to y. (x, y)
+
+    if gui:
+        if all_settings['borderless']:
+            flag = pygame.NOFRAME
+        elif all_settings['resizable window']:
+            flag = pygame.RESIZABLE
+        else:
+            flag = 0
+
+        if all_settings['fullscreen']:
+            screen = pygame.display.set_mode(flags=pygame.FULLSCREEN | flag)
+            screen_size = screen.get_size()
+        else:
+            screen = pygame.display.set_mode(screen_size, flag)
+        
+        # Create a transparent surface the size of the screen
+        overlay = pygame.Surface(screen_size, pygame.SRCALPHA)
+
+
+        # Needs to run after setting display mode!
+        pygame.display.set_caption(all_settings['window name'])
+        pygame.display.set_icon(pygame.image.load(resource_path(f'.assets/.images/icons/{all_settings['icon name']}')).convert_alpha())
+
+        if log:
+            log_action('gui initialized', 'INFO')
+    else:
+        all_settings['skip start menu'] = True
+        all_settings['skip end screen'] = True
+
+
+    background_color: list[int] = all_settings['background color']
+    fps: int = all_settings['fps']
+    ups: int = all_settings['ups']
+    if ups == 'max speed': # So that we can still create the clock object
+        ups = 887
+
+    sector_size: list[int] = all_settings['sector size'] # Needs to be able to cleanly divisible by steps
+    step: int = all_settings['step'] # Needs to be able to cleanly divisible by sector size, both x and y. If you change this while the script is running be sure to recalculate steps
+
+    portals: bool = all_settings['portals']
+    eating_speed_up: bool = all_settings['eating speeds you up']
+    eating_speed_up_amount: int = all_settings['eating speed you up amount']
+    snakes_count: int = all_settings['snakes count']
 
 
     busy_loop_threshold = all_settings['busy loop threshold']
@@ -262,7 +312,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         exiting_game.set() # So that any random errors, don't appear.
         pygame.quit() # Shutdowns all pygame subprocesses
         if full_exit:
-            exit()
+            sys.exit()
 
     # handles image asset initialization
 
@@ -277,9 +327,9 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     if image_assets:
         images = {}
         def load_image(name: str):
-            images[name[:name.rfind('.')]] = pygame.image.load(Path(f'.images/{name}')).convert_alpha()
+            images[name[:name.rfind('.')]] = pygame.image.load(resource_path(f'.assets/.images/{name}')).convert_alpha()
 
-        for image_name in listdir(Path('.images')):
+        for image_name in listdir(resource_path('.assets/.images')):
             load_image(image_name)
             image_name = image_name[:image_name.rfind('.')]
             images[image_name] = scale_image(images[image_name])
@@ -324,7 +374,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         args = (font_name if font_name != None else global_font_name, font_size if font_size != None else global_font_size,
                font_bold if font_bold != None else global_font_bold, font_italic if font_italic != None else global_font_italic)
-        fonts[font_setting] = (pygame.font.Font(Path('.fonts/' + args[0]), args[1]) if all_settings['use projects fonts'] else pygame.font.SysFont(*args))
+        fonts[font_setting] = (pygame.font.Font(resource_path('.assets/.fonts/') + args[0], args[1]) if all_settings['use projects fonts'] else pygame.font.SysFont(*args))
 
     if log:
         log_action('fonts initialized', 'INFO')
@@ -366,7 +416,8 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             else:
                 music_files = []
                 for music_directory in all_settings['music directories']:
-                    music_files.extend(str(Path(music_directory + ('/' if not music_directory.endswith('/') else '') + music_file)) for music_file in listdir(Path(music_directory))) # address with name, must be saved
+                    music_directory = resource_path(music_directory)
+                    music_files.extend(str(Path(music_directory + ('/' if not music_directory.endswith('/') else '') + music_file)) for music_file in listdir(music_directory)) # address with name, must be saved
 
             play_last_song = False # Has to be here to be at least once defined in the outer scope
 
@@ -391,7 +442,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                         sleep(playlist_sleep_time)
 
                     if not any(alive):
-                        exit()
+                        sys.exit()
 
                     if not play_last_song and not repeat_song and not queue_song:
                         music_name = music_files[music_index if sequential_playlist else randint(0, len(music_files) - 1)]
@@ -425,10 +476,10 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         if sfx:
             lose_sfx_name = all_settings['lose sfx']
             multiple_sfx = type(lose_sfx_name) == list
-            lose_sfx_files = lose_sfx_name if multiple_sfx else listdir('.sfx/lose')
-            eating_sfx = pygame.mixer.Sound('.sfx/' + all_settings['eating sfx'])
+            lose_sfx_files = lose_sfx_name if multiple_sfx else listdir(resource_path('.assets/.sfx/lose'))
+            eating_sfx = pygame.mixer.Sound(resource_path('.assets/.sfx/' + all_settings['eating sfx']))
             eating_sfx.set_volume(master_volume * eating_sfx_volume)
-            lose_sfx = pygame.mixer.Sound('.sfx/lose/' + lose_sfx_files[randint(0, len(lose_sfx_files) - 1)] if lose_sfx_name == 'random' or multiple_sfx else lose_sfx_name)
+            lose_sfx = pygame.mixer.Sound(resource_path('.assets/.sfx/lose/' + lose_sfx_files[randint(0, len(lose_sfx_files) - 1)]) if lose_sfx_name == 'random' or multiple_sfx else lose_sfx_name)
             lose_sfx.set_volume(master_volume * lose_sfx_volume)
 
         if log:
@@ -1585,13 +1636,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             pygame.mouse.set_visible(False)
             cursor_size = all_settings['cursor size']
 
-            frames = listdir(f'.images/cursors/{all_settings['cursor name']}/')
+            frames = listdir(resource_path(f'.assets/.images/cursors/{all_settings['cursor name']}/'))
             frame_count = len(frames)
 
             if frame_count == 1:
-                cursor_frame = scale_image(pygame.image.load(f'.images/cursors/{all_settings['cursor name']}/0.png').convert_alpha(), cursor_size)
+                cursor_frame = scale_image(pygame.image.load(resource_path(f'.assets/.images/cursors/{all_settings['cursor name']}/0.png')).convert_alpha(), cursor_size)
             else:
-                cursor_frames = cycle([scale_image(pygame.image.load(f'.images/cursors/{all_settings['cursor name']}/{i}.png').convert_alpha(), cursor_size) for i in range(frame_count)])
+                cursor_frames = cycle([scale_image(pygame.image.load(resource_path(f'.assets/.images/cursors/{all_settings['cursor name']}/{i}.png')).convert_alpha(), cursor_size) for i in range(frame_count)])
                 cursor_frame = next(cursor_frames)
 
                 cursor_delay = all_settings['cursor delay']
@@ -1648,9 +1699,9 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
 
             settings_descriptions_color = all_settings['setting description text color']
-            with open('SETTINGS.md') as f:
+            with open(resource_path('SETTINGS.md')) as f:
                 settings_descriptions_blits = [create_text_blit_full_(description[description.find(':') + 1:].replace('`', ''), settings_descriptions_color, 'setting description', topleft=(0, 0))[0] for description in f.read().splitlines()[2:]]
-            with open('CONFIGURATION.md') as f:
+            with open(resource_path('CONFIGURATION.md')) as f:
                 config_descriptions_blits = [create_text_blit_full_(description[description.find(':') + 1:].replace('`', ''), settings_descriptions_color, 'setting description', topleft=(0, 0))[0] for description in f.read().splitlines()[2:]]
 
             for _ in range(len(settings) - len(settings_descriptions_blits) + 1):

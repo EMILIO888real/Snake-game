@@ -1,3 +1,20 @@
+## [0.29.0] - 2026-04-03
+
+### Added
+- Added bundled version of the game for other os's (windows and linux).
+- A .spec file for compiling (bundling) the project correctly and easily in the future.
+
+### Changed
+- Moved all kinds of files and folders that are primarily as read only into the `.assets` folder.
+- The integrity file, it now also includes checking subfolders and their content.
+- All asset loading to modify their location at runtime based on the environment for bundled versions.
+- Upgraded and improved publishing tool. All kinds of general tweaks.
+
+### Fixed
+- All kinds of problems with the publishing tool also refined AI prompts.
+
+---
+
 ## [0.28.1] - 2026-04-02
 
 ### Fixed
