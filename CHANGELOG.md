@@ -1,3 +1,10 @@
+## [0.29.2] - 2026-04-03
+
+### Fixed
+- Fixed Windows build icon file for PyInstaller.
+
+---
+
 ## [0.29.1] - 2026-04-03
 
 ### Fixed

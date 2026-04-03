@@ -35,5 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='.assets/.images/icons/red dragon (resized).png'
+    icon='.assets/.images/icons/red dragon.ico'
 )
