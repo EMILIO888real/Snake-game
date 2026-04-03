@@ -1,3 +1,10 @@
+## [0.29.3] - 2026-04-03
+
+### Fixed
+- Added asset name to the build file to enable correct uploads to GitHub releases.
+
+---
+
 ## [0.29.2] - 2026-04-03
 
 ### Fixed

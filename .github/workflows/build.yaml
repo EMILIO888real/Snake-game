@@ -31,4 +31,5 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: "dist/Snake game.exe"
+          asset_name: "Snake game.exe"
           asset_content_type: application/octet-stream
