@@ -1,3 +1,10 @@
+## [0.29.1] - 2026-04-03
+
+### Fixed
+- Fixed Windows build executable YAML configuration.
+
+---
+
 ## [0.29.0] - 2026-04-03
 
 ### Added

@@ -18,9 +18,11 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Install PyInstaller
+        run: pip install pyinstaller
 
       - name: Build executable
-        run: pyinstaller main.spec
+        run: python -m PyInstaller main.spec
 
       - name: Upload to GitHub Release
         uses: actions/upload-release-asset@v1
@@ -28,5 +30,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: dist/Snake game.exe
+          asset_path: "dist/Snake game.exe"
           asset_content_type: application/octet-stream
