@@ -141,7 +141,7 @@
     "custom error message": true,
     "generate error report": true,
     "overwrite error reports": false,
-    "music directories": [".assets/.music/"],
+    "music directories": ["assets/music/"],
     "busy loop threshold": 0.0001,
     "disable key inputs": false,
     "wait for bot": false,
@@ -261,7 +261,7 @@
     "apply settings text position": [0.83, 0.95],
     "apply settings button color": [50, 50, 50],
     "icon name": "red dragon (resized).png",
-    "special effects cycle time": 0.01,
+    "crt special effects cycle time": 0.01,
     "show crt special effect": true,
     "crt lines count": 5,
     "crt background color": [255, 255, 255, 15],
@@ -284,5 +284,6 @@
     "crt background rgb panel draw sequentially": true,
     "crt background rgb panel pixel size": [4, 4],
     "crt background rgb panel x axis priority": true,
-    "crt background rgb panel transparency": 5
+    "crt background rgb panel transparency": 5,
+    "snake images": "default red"
 }

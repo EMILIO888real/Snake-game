@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('.assets', '.assets'), ('CONFIGURATION.md', '.'), ('SETTINGS.md', '.')],
+    datas=[('assets', 'assets'), ('CONFIGURATION.md', '.'), ('SETTINGS.md', '.')],
     hiddenimports=['pygame'],
     hookspath=[],
     hooksconfig={},
@@ -35,5 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='.assets/.images/icons/red dragon.ico'
+    icon='assets/images/icons/red dragon.ico'
 )
