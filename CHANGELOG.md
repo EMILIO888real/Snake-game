@@ -1,3 +1,23 @@
+## [0.30.0] - 2026-04-05
+
+### Added
+- Real support for snake image assets, also a full default example called `default red`.
+- New docs folder with new documents to better split up the documentation into their respective places.
+
+### Changed
+- Upgraded the publishing tool even more to be more reliable. Also will soon in the future publish it as another project under MIT license.
+- Cleaned up the release post text.
+- Up2026-04-05d README to reflect the latest changes.
+- Updated and refactored a lot of code in main file.
+- Moved and organized code to other files like the custom modules getting imported.
+- Special effects settings now each have their own settings and there is also a global toggle `draw special effects`.
+
+### Fixed
+- Image assets setting.
+- Special effects settings.
+
+---
+
 ## [0.29.4] - 2026-04-03
 
 ### Fixed

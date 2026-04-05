@@ -1,7 +1,14 @@
 '''ege -> Emilio's game engine
 '''
-from typing import Sequence
+from random import randint
+import sys
+import threading
+from time import perf_counter, sleep
+from typing import Callable, Optional, Sequence
 import pygame
+
+def noop():
+    pass
 
 def scale_position(position: Sequence[float], screen_size: Sequence[int]) -> list[int, int]:
     '''
@@ -14,6 +21,7 @@ def scale_position(position: Sequence[float], screen_size: Sequence[int]) -> lis
     :return: scaled position
     :rtype: list[float, float]
     '''
+
     return [int(screen_size[0] * position[0]), int(screen_size[1] * position[1])]
 
 def create_text_blit(text: str, text_color: list[int, int, int], font: pygame.font, **anchor: tuple[int | float, int | float]) -> tuple[pygame.Surface, pygame.Rect]:
@@ -31,6 +39,7 @@ def create_text_blit(text: str, text_color: list[int, int, int], font: pygame.fo
    :return: text blit tuple
    :rtype: tuple[pygame.Surface, pygame.Rect]
    '''
+
    text_render = font.render(text, True, text_color)
    return (text_render, text_render.get_rect(**anchor))
 
@@ -43,6 +52,7 @@ def rect_to_tuple(rect: pygame.rect) -> tuple[int, int, int, int]:
     :return: tuple representation of the rect
     :rtype: tuple[int, int, int, int]
     '''
+
     return (rect.x, rect.y, rect.w, rect.h)
 
 def tuple_to_rect(serialized_data: tuple) -> pygame.Rect:
@@ -54,4 +64,108 @@ def tuple_to_rect(serialized_data: tuple) -> pygame.Rect:
     :return: The deserialized rect
     :rtype: Rect
     '''
+
     return pygame.Rect(serialized_data[0], serialized_data[1], serialized_data[2], serialized_data[3])
+
+class Advanced_clock():
+    '''
+    A custom clock class that allows for more accurate timing and fps/ups calculation. It uses a combination of sleep and busy waiting to achieve the desired frame time.
+    
+    :param fps: frames per second or updates per second to maintain
+    '''
+
+    def __init__(self, fps: int, busy_loop_threshold):
+        self._last_frame = perf_counter()
+        self._frame_time = 1 / (fps + 1)
+        self.actual_frame_time = 0.00001
+        self.busy_loop_threshold = busy_loop_threshold
+
+    def tick(self) -> None:
+        '''Sleeps and busy waits until the desired frame time has passed since the last frame. It also updates the actual frame time for fps/ups calculation.'''
+
+        remaining = self._frame_time - (perf_counter() - self._last_frame)
+        if remaining > self.busy_loop_threshold:
+            sleep(remaining - self.busy_loop_threshold)
+        while perf_counter() - self._last_frame < self._frame_time:
+            pass
+
+        finish_time = perf_counter()
+        self.actual_frame_time = finish_time - self._last_frame
+        self._last_frame = finish_time
+    
+    def get_fps(self) -> float:
+        '''Returns the current frames per second or updates per second based on the actual frame time.'''
+
+        return 1 / self.actual_frame_time
+
+    def update(self, fps: int) -> None:
+        '''Updates the target fps/ups and recalculates the frame time.'''
+
+        self._frame_time = 1 / (fps + 1)
+    
+def playlist(music_files: Sequence[str], music_mixer: pygame.mixer.music, played_music: Sequence[str],
+            play_last_song: threading.Event, queue_song: threading.Event, repeat_song: threading.Event, pause: threading.Event, exit_event: Callable,
+            playlist_sleep_time: float | int, sequential_playlist: bool, fade_ms: int, action_function: Optional[Callable] = noop) -> None:
+    '''
+    Function that runs in a separate thread to handle music playback, including playing songs sequentially or randomly, repeating songs, and queuing songs. It checks for various events to control the music playback and uses a sleep time to avoid busy waiting.
+
+    :param music_files: a list of the music files to play, should be in a format that pygame can load (e.g. .mp3, .ogg, etc.)
+    :type music_files: Sequence[str]
+    :param music_mixer: the pygame mixer music object to control the music playback
+    :type music_mixer: pygame.mixer.music
+    :param played_music: a list of the music files that have been played, used for the play last song feature
+    :type played_music: Sequence[str]
+    :param play_last_song: an event that signals when the play last song feature should be activated
+    :type play_last_song: threading.Event
+    :param queue_song: an event that signals when the queue song feature should be activated
+    :type queue_song: threading.Event
+    :param repeat_song: an event that signals when the repeat song feature should be activated
+    :type repeat_song: threading.Event
+    :param pause: an event that signals when the music should be paused
+    :type pause: threading.Event
+    :param exit_event: a function that returns a boolean indicating when the thread should exit, used to safely exit the thread when the game is closed
+    :type exit_event: Callable
+    :param playlist_sleep_time: the amount of time in seconds that the thread should sleep for when waiting for a song to finish or when paused
+    :type playlist_sleep_time: float | int
+    :param sequential_playlist: whether the playlist should play songs sequentially or randomly
+    :type sequential_playlist: bool
+    :param fade_ms: the amount of time in milliseconds that the music should take to fade in when a new song starts
+    :type fade_ms: int
+    :param action_function: an optional function that can be called after each song is played, for example to update the UI or something, defaults to a no operation function
+    :type action_function: Optional[Callable]
+    
+    '''
+
+    music_index = 0
+
+    while True:
+        while music_mixer.get_busy() or pause.is_set(): # Got to be a better way to do this to only check one of them at a time
+            sleep(playlist_sleep_time)
+
+        if exit_event():
+            sys.exit()
+
+        if not play_last_song.is_set() and not repeat_song.is_set() and not queue_song.is_set():
+            music_name = music_files[music_index if sequential_playlist else randint(0, len(music_files) - 1)]
+            played_music.append(music_name)
+        
+        if repeat_song.is_set() or queue_song.is_set():
+            music_index -= 1
+
+        queue_song.clear() # reset so we don't repeat anymore
+
+        if play_last_song.is_set():
+            if len(played_music) > 1:
+                played_music.pop()
+                music_name = played_music[-1]
+            play_last_song.clear()
+            music_index -= 1 if music_index == 1 else 2
+
+        pygame.mixer.music.load(music_name)
+        pygame.mixer.music.play(fade_ms=fade_ms)
+
+        music_index += 1
+        if music_index == len(music_files):
+            music_index = 0
+
+        action_function()

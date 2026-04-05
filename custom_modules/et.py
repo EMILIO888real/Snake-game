@@ -55,6 +55,7 @@ for more info use info(func) function on specific methods
 
 # import all outside modules neded here, so we don't try to import them each function call
 
+from decimal import Decimal
 import sys
 from collections.abc import Collection
 from os import execl, path, replace, listdir, mkdir
@@ -1295,6 +1296,41 @@ def tree(path: str | Path, exclusions: Optional[Collection] = ()) -> dict:
 
     return iterate_dir(path)
 
+def check_dicts(integrity_dict: dict, user_dict):
+
+    missing = set()
+
+    for key in integrity_dict:
+
+        integrity_item = integrity_dict[key]
+        user_item = user_dict.get(key)
+        if user_item == None:
+            missing.add(key)
+            continue
+
+        if type(integrity_item) == list:
+            integrity_item = set(integrity_item)
+            user_item = set(user_item)
+        else:
+            check_dicts(integrity_item, user_item)
+
+        if type(user_item) == set and type(integrity_item) == set:
+            if not integrity_item.issubset(user_item) :
+                missing.union(integrity_item - user_item)
+
+    return missing
+
+def load_clean_decimal(num: float | int | str) -> Decimal:
+        '''
+        loads a number as a Decimal object
+        
+        :param num: number to load
+        :type num: float | int | str
+        :return: Decimal object
+        :rtype: Decimal
+        '''
+
+        return Decimal(str(num))
 
 if __name__ == '__main__':
     # print('This module is not meant to be run directly')

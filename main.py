@@ -3,7 +3,6 @@ Snake game made in python with pygame. Made by your's truly. Check README.md for
 '''
 
 from datetime import datetime, timedelta
-from pprint import pprint
 
 import_time = datetime.now()
 
@@ -14,31 +13,28 @@ from random import choice, randint
 from itertools import cycle
 from pathlib import Path
 from json import load, dump
-from queue import Queue
 from typing import Any, Callable, Optional, Sequence
-from time import perf_counter, sleep
+from time import sleep
 from os import fsync, listdir, _exit
 from decimal import Decimal
 from traceback import print_exception, format_exception
 from ast import literal_eval
 from math import ceil
+# import multiprocessing
 
-
-# from numba import njit # Add this later for some extra performance. Might not be possible due to new and well made syntax
-
-from custom_modules.et import color_generator, format_time, read_json as _read_json, merge_settings, log_action as _log_action, create_log_message, format_text, print_colored_text, reboot_current_script, noop, launch_in_new_terminal, safe_replace, resource_path, tree
-from custom_modules.ege import create_text_blit, scale_position, rect_to_tuple
+from custom_modules.et import check_dicts, color_generator, format_time, load_clean_decimal, read_json as _read_json, merge_settings, log_action as _log_action, create_log_message, format_text, print_colored_text, reboot_current_script, noop, launch_in_new_terminal, safe_replace, resource_path, tree
+from custom_modules.ege import Advanced_clock, create_text_blit, playlist, scale_position, rect_to_tuple
 
 import_time = datetime.now() - import_time
 
-def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Queue] = None) -> None:
+def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Optional[threading.Queue] = None) -> None:
     '''
     Main function of the snake game.
     
     :param info_queues: list of queues to send snake info to
-    :type info_queues: Optional[list[Queue]]
+    :type info_queues: Optional[list[threading.Queue]]
     :param commands_queue: queue to receive commands from
-    :type commands_queue: Optional[Queue]
+    :type commands_queue: Optional[threading.Queue]
     '''
 
     def read_json(file_name: str, default_values: Optional[dict] = {}, indent: int = 4) -> dict:
@@ -53,49 +49,27 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         :return: the contents of the json file as a dictionary, or the default values if the file didn't exist
         :rtype: dict
         '''
+
         return _read_json(resource_path(file_name), default_values, indent)
-    
+
     # Checks the integrity of the whole project
 
-    if not Path(resource_path('.assets/.integrity.json')).exists():
+    if not Path(resource_path('assets/integrity.json')).exists():
         print_colored_text('Missing integrity file! Please make sure you have all the files and try again. If you are sure you have all the files, please report this to a developer via Discord or Github!', [255, 0, 0])
         exit()
 
-    integrity_cwd = read_json('.assets/.integrity.json')['CWD']
+    integrity_cwd = read_json('assets/integrity.json')['CWD']
     cwd = tree(resource_path('.'))
 
-    missing = []
-    def check_dicts(integrity_dict: dict, user_dict):
-        for key in integrity_dict:
-
-            integrity_item = integrity_dict[key]
-            user_item = user_dict.get(key)
-            if user_item == None:
-                missing.append(set([key]))
-                continue
-
-            if type(integrity_item) == list:
-                integrity_item = set(integrity_item)
-                user_item = set(user_item)
-            else:
-                check_dicts(integrity_item, user_item)
-
-            if type(user_item) == set and type(integrity_item) == set:
-                if not integrity_item.issubset(user_item) :
-                    missing.append(integrity_item - user_item)
-
-    check_dicts(integrity_cwd, cwd)
-    together_missing = set()
-    for item in missing:
-        together_missing = together_missing.union(item)
+    missing = check_dicts(integrity_cwd, cwd)
     
-    if together_missing != set():
-        print_colored_text(f'Warning! Missing files or directories: {together_missing}', [255, 222, 33])
+    if missing != set():
+        print_colored_text(f'Warning! Missing files or directories: {missing}', [255, 222, 33])
 
     # Reads and initializes settings
 
-    default_settings = read_json('.assets/.default settings.json')
-    default_config = read_json('.assets/.default config.json')
+    default_settings = read_json('assets/default settings.json')
+    default_config = read_json('assets/default config.json')
 
     user_settings: dict = _read_json('settings.json', {'name': 'Joker'})
 
@@ -105,7 +79,9 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     all_settings: dict = settings.copy()
     all_settings.update(config)
 
-    version = [version[1] for version in read_json('.assets/.version.json').items()]
+    # Sets up the global exception handler
+
+    version = [version[1] for version in read_json('assets/version.json').items()]
     all_settings['version'] = f'{version[0]}.{version[1]}.{version[2]}'
 
     custom_error_message = all_settings['custom error message']
@@ -122,7 +98,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     sdl_version = pygame.get_sdl_version()
     error_report_sdl_version_text = format_text(all_settings['error report text sdl version'], all_settings['error report text sdl version variable index'], f'{sdl_version[0]}.{sdl_version[1]}.{sdl_version[2]}')
 
-    error_report_integrity_text = format_text(all_settings['error report text integrity'], all_settings['error report text integrity variable index'], all_settings['error report text integrity successful'] if together_missing == set() else format_text(all_settings['error report text integrity failed'], all_settings['error report text integrity failed variable index'], together_missing))
+    error_report_integrity_text = format_text(all_settings['error report text integrity'], all_settings['error report text integrity variable index'], all_settings['error report text integrity successful'] if missing == set() else format_text(all_settings['error report text integrity failed'], all_settings['error report text integrity failed variable index'], missing))
 
     error_occurred = False
     exiting_game = threading.Event()
@@ -158,7 +134,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             print('error report generated at: "./error report.txt"')
             if not all_settings['log']:
                 print('Logging wasn\'t enabled, would you please enable it and re-run the program to encounter the error with logging enabled.')
-            if not launch_in_new_terminal(str(Path(resource_path('.assets/error handler.py')).absolute())):
+            if not launch_in_new_terminal(str(Path(resource_path('assets/error handler.py')).absolute())):
                 print('No supported terminal emulator found. Please run "error handler.py" manually.')
 
 
@@ -178,11 +154,15 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     sys.excepthook = global_exception_handler # replace the default error handler with our own.
     threading.excepthook = thread_excepthook # Also, so other threads access the same handler
 
+
     if all_settings['compatibility']:
         if sys.platform == 'win32':
             print_colored_text('Warning you are running on windows with compatibility mode on!\nSome setting have been automatically changed.', [255, 255, 0])
             all_settings['slower key inputs'] = False
             all_settings['busy loop threshold'] = 0.001
+
+
+    # Sets up logging
 
     log: bool = all_settings['log']
 
@@ -213,6 +193,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         log_action('all_settings loaded', 'INFO')
 
 
+
     gui: bool = all_settings['GUI']
 
     if not all_settings['fullscreen']:
@@ -238,7 +219,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         # Needs to run after setting display mode!
         pygame.display.set_caption(all_settings['window name'])
-        pygame.display.set_icon(pygame.image.load(resource_path(f'.assets/.images/icons/{all_settings['icon name']}')).convert_alpha())
+        pygame.display.set_icon(pygame.image.load(resource_path(f'assets/images/icons/{all_settings['icon name']}')).convert_alpha())
 
         if log:
             log_action('gui initialized', 'INFO')
@@ -248,63 +229,36 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
 
     background_color: list[int] = all_settings['background color']
-    fps: int = all_settings['fps']
     ups: int = all_settings['ups']
     if ups == 'max speed': # So that we can still create the clock object
         ups = 887
 
-    sector_size: list[int] = all_settings['sector size'] # Needs to be able to cleanly divisible by steps
-    step: int = all_settings['step'] # Needs to be able to cleanly divisible by sector size, both x and y. If you change this while the script is running be sure to recalculate steps
+        
+    def scale_position_(position: tuple[float, float]) -> list[int, int]:
+        '''
+        Wrapper for scale_position function.
+        
+        :param position: position to scale
+        :type position: Sequence[float, float]
+        :return: scaled position
+        :rtype: list[float, float]
+        '''
 
-    portals: bool = all_settings['portals']
-    eating_speed_up: bool = all_settings['eating speeds you up']
-    eating_speed_up_amount: int = all_settings['eating speed you up amount']
+        return scale_position(position, screen_size)
+    
+
     snakes_count: int = all_settings['snakes count']
 
-
-    busy_loop_threshold = all_settings['busy loop threshold']
-
-    class Advanced_clock():
-        '''
-        A custom clock class that allows for more accurate timing and fps/ups calculation. It uses a combination of sleep and busy waiting to achieve the desired frame time.
-        
-        :param fps: frames per second or updates per second to maintain
-        '''
-
-        def __init__(self, fps: int):
-            self._last_frame = perf_counter()
-            self._frame_time = 1 / (fps + 1)
-            self.actual_frame_time = 0.00001
-
-        def tick(self) -> None:
-            '''Sleeps and busy waits until the desired frame time has passed since the last frame. It also updates the actual frame time for fps/ups calculation.'''
-
-            remaining = self._frame_time - (perf_counter() - self._last_frame)
-            if remaining > busy_loop_threshold:
-                sleep(remaining - busy_loop_threshold)
-            while perf_counter() - self._last_frame < self._frame_time:
-                pass
-
-            finish_time = perf_counter()
-            self.actual_frame_time = finish_time - self._last_frame
-            self._last_frame = finish_time
-        
-        def get_fps(self) -> float:
-            '''Returns the current frames per second or updates per second based on the actual frame time.'''
-
-            return 1 / self.actual_frame_time
-
-        def update(self, fps: int) -> None:
-            '''Updates the target fps/ups and recalculates the frame time.'''
-
-            self._frame_time = 1 / (fps + 1)
 
     # Handles screen and other gui elements
 
     pygame.init()
 
-    fps_clock = Advanced_clock(fps)
-    ups_clocks = [Advanced_clock(ups) for _ in range(snakes_count)]
+    busy_loop_threshold = all_settings['busy loop threshold']
+    fps: int = all_settings['fps']
+
+    fps_clock = Advanced_clock(fps, busy_loop_threshold)
+    ups_clocks = [Advanced_clock(ups, busy_loop_threshold) for _ in range(snakes_count)]
     snakes_ups = [ups for _ in range(snakes_count)]
 
     def clean_exit(full_exit: bool = True):
@@ -316,36 +270,23 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     # handles image asset initialization
 
-    def snake_head_noop(var):
-        pass
-
-    def scale_image(image: pygame.Surface, size: Sequence[int] = sector_size) -> pygame.Surface:
-            return pygame.transform.scale(image, size)
-
+    sector_size: list[int] = all_settings['sector size'] # Needs to be up here since load image uses it
     image_assets = all_settings['use image assets']
 
+    def load_image(file_path: str, size: Sequence[int] = sector_size) -> pygame.Surface:
+            return pygame.transform.scale(pygame.image.load(resource_path(f'assets/images/{file_path}')).convert_alpha(), size)
+
     if image_assets:
-        images = {}
-        def load_image(name: str):
-            images[name[:name.rfind('.')]] = pygame.image.load(resource_path(f'.assets/.images/{name}')).convert_alpha()
 
-        for image_name in listdir(resource_path('.assets/.images')):
-            load_image(image_name)
-            image_name = image_name[:image_name.rfind('.')]
-            images[image_name] = scale_image(images[image_name])
-        snake_heads = {}
+        snake_images = all_settings['snake images']
 
-        def change_snake_head(move_direction: int) -> None:
-            snake_heads[snake_index] = images[f'snake head {move_direction}']
+        snake_head_images = [load_image(f'snakes/{snake_images}/snake head {i}.png') for i in range(4)]
+        snake_body_images = [load_image(f'snakes/{snake_images}/snake body {i}.png') for i in range(4)]
 
-        snake_head_changer = change_snake_head
-
-        food_image = images['gold apple' if randint(0, 1) == 1 else 'red apple']
+        food_image = load_image('gold apple.png' if randint(0, 1) == 1 else 'red apple.png')
 
         if log:
             log_action('image assets loaded', 'INFO')
-    else:
-        snake_head_changer = snake_head_noop
 
 
     # generates a dictionary with all of the font objects
@@ -374,38 +315,47 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         args = (font_name if font_name != None else global_font_name, font_size if font_size != None else global_font_size,
                font_bold if font_bold != None else global_font_bold, font_italic if font_italic != None else global_font_italic)
-        fonts[font_setting] = (pygame.font.Font(resource_path('.assets/.fonts/') + args[0], args[1]) if all_settings['use projects fonts'] else pygame.font.SysFont(*args))
+        fonts[font_setting] = (pygame.font.Font(resource_path('assets/fonts/') + args[0], args[1]) if all_settings['use projects fonts'] else pygame.font.SysFont(*args))
 
     if log:
         log_action('fonts initialized', 'INFO')
-
-    def load_clean_decimal(num: float | int | str) -> Decimal:
-        '''
-        loads a number as a Decimal object
-        
-        :param num: number to load
-        :type num: float | int | str
-        :return: Decimal object
-        :rtype: Decimal
-        '''
-
-        return Decimal(str(num))
 
     # Handles all audio (music and sfx)
 
     audio: bool = all_settings['audio']
     music: bool = all_settings['music']
     sfx: bool = all_settings['sfx']
+
     if audio:
         master_volume = load_clean_decimal(all_settings['master volume'])
         music_volume = load_clean_decimal(all_settings['music volume'])
         eating_sfx_volume = load_clean_decimal(all_settings['eating sfx volume'])
         lose_sfx_volume = load_clean_decimal(all_settings['lose sfx volume'])
 
-
         pygame.mixer.init()
 
         if music:
+
+            played_music = []
+            play_last_song = threading.Event()
+            queue_song = threading.Event()
+            repeat_song = threading.Event()
+
+            # In case we immediately want the song to already start repeating?
+            if all_settings['repeat song']:
+                repeat_song.set()
+
+            music_notification_variable_index = all_settings['music notification text variable index']
+            music_notification_text = all_settings['music notification text']
+            music_notification_text_color = all_settings['music notification text color']
+            music_notification_text_position = scale_position_(all_settings['music notification text position'])
+
+            def create_music_notification():
+                notification_music_name = Path(played_music[-1]).name
+                create_notification(create_text_blit_(format_text(music_notification_text, music_notification_variable_index, notification_music_name[:notification_music_name.rfind('.')]), music_notification_text_color, music_notification_text_position, 'music notification'), 'music')
+            
+            def music_exit_event() -> bool:
+                return not any(alive)
 
             if type(all_settings['music name']) == str and all_settings['music name'] != 'random':
                 all_settings['playlist'] = False
@@ -419,67 +369,16 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     music_directory = resource_path(music_directory)
                     music_files.extend(str(Path(music_directory + ('/' if not music_directory.endswith('/') else '') + music_file)) for music_file in listdir(music_directory)) # address with name, must be saved
 
-            play_last_song = False # Has to be here to be at least once defined in the outer scope
-
-            def playlist() -> None:
-                ''' handles the music playlist '''
-
-                nonlocal play_last_song, queue_song
-
-                music_index = 0
-                played_music = []
-                playlist_sleep_time = all_settings['playlist cycle time']
-                sequential_playlist = all_settings['sequential playlist']
-                fade_ms = all_settings['music fade out']
-
-                music_notification_text_color = all_settings['music notification text color']
-                music_notification_text_position = scale_position_(all_settings['music notification text position'])
-                music_notification_variable_index = all_settings['music notification text variable index']
-                music_notification_text = all_settings['music notification text']
-
-                while True:
-                    while pygame.mixer.music.get_busy() or pause.is_set(): # Got to be a better way to do this to only check one of them at a time
-                        sleep(playlist_sleep_time)
-
-                    if not any(alive):
-                        sys.exit()
-
-                    if not play_last_song and not repeat_song and not queue_song:
-                        music_name = music_files[music_index if sequential_playlist else randint(0, len(music_files) - 1)]
-                        played_music.append(music_name)
-                    
-                    if repeat_song or queue_song:
-                        music_index -= 1
-
-                    queue_song = False # reset so we don't repeat anymore
-
-                    if play_last_song:
-                        if len(played_music) > 1:
-                            played_music.pop()
-                            music_name = played_music[-1]
-                        play_last_song = False
-                        music_index -= 1 if music_index == 1 else 2
-
-                    pygame.mixer.music.load(music_name)
-                    pygame.mixer.music.play(fade_ms=fade_ms)
-
-                    music_index += 1
-                    if music_index == len(music_files):
-                        music_index = 0
-
-                    notification_music_name = Path(music_name).name
-                    create_notification(create_text_blit_(format_text(music_notification_text, music_notification_variable_index, notification_music_name[:notification_music_name.rfind('.')]), music_notification_text_color, music_notification_text_position, 'music notification'), 'music')
-
             pygame.mixer.music.set_volume(master_volume * music_volume)
             if not all_settings['playlist']:
                 pygame.mixer.music.load((music_files[randint(0, len(music_files) - 1)] if all_settings['music name'] == 'random' or multiple_songs else all_settings['music name']))
         if sfx:
             lose_sfx_name = all_settings['lose sfx']
             multiple_sfx = type(lose_sfx_name) == list
-            lose_sfx_files = lose_sfx_name if multiple_sfx else listdir(resource_path('.assets/.sfx/lose'))
-            eating_sfx = pygame.mixer.Sound(resource_path('.assets/.sfx/' + all_settings['eating sfx']))
+            lose_sfx_files = lose_sfx_name if multiple_sfx else listdir(resource_path('assets/sfx/lose'))
+            eating_sfx = pygame.mixer.Sound(resource_path('assets/sfx/' + all_settings['eating sfx']))
             eating_sfx.set_volume(master_volume * eating_sfx_volume)
-            lose_sfx = pygame.mixer.Sound(resource_path('.assets/.sfx/lose/' + lose_sfx_files[randint(0, len(lose_sfx_files) - 1)]) if lose_sfx_name == 'random' or multiple_sfx else lose_sfx_name)
+            lose_sfx = pygame.mixer.Sound(resource_path('assets/sfx/lose/' + lose_sfx_files[randint(0, len(lose_sfx_files) - 1)]) if lose_sfx_name == 'random' or multiple_sfx else lose_sfx_name)
             lose_sfx.set_volume(master_volume * lose_sfx_volume)
 
         if log:
@@ -540,18 +439,6 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             text = format_text(all_settings[setting], all_settings[f'{setting} variable index'], var)
         return create_text_blit_(text, all_settings[f'{setting} color'], scale_position_(all_settings[f'{setting} position']), setting[:-5])
     
-    def scale_position_(position: tuple[float, float]) -> list[int, int]:
-        '''
-        Wrapper for scale_position function.
-        
-        :param position: position to scale
-        :type position: Sequence[float, float]
-        :return: scaled position
-        :rtype: list[float, float]
-        '''
-
-        return scale_position(position, screen_size)
-    
     # Generates and handles some start up for colors
 
     def create_color_list(length: int, re_read_colors: bool = True) -> list[int]:
@@ -602,60 +489,67 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     crashes: list[bool]
     alive: list[bool]
     moves: list[list[threading.Event]]
-    start_up: threading.Event
     steps: int
     steps_ratio: float
-    pause: threading.Event
     play_times: list[float]
-    snakes: list[list[pygame.Rect]]
     food: pygame.Rect
     last_sector_index: int
-    size: tuple[int, int]
-    sectors: list[tuple[int, int]]
-    illegal_positions: set[int]
-    starting_position: list[int]
     game_started_time: datetime
     points_blittable: tuple[pygame.Surface, pygame.Rect]
     actions: list[list[int]] # 0 -> up, 1 -> left, 2 -> down, 3 -> right
 
+    step: int = all_settings['step'] # Needs to be able to cleanly divisible by sector size, both x and y. If you change this while the script is running be sure to recalculate steps
+    sequential_starting_pos = all_settings['sequential starting position']
+
     points = 0
     formatted_points_text = format_text(all_settings['points text'], all_settings['points text variable index'], points)
     keep_restarting = threading.Event()
+    snakes = []
+    starting_position = []
+    pause = threading.Event()
+    start_up = threading.Event()
+    play_times = []
+
+    # These variables don't change from restarting the game, therefore are calculated only once
+
+    sectors = [(x, y) for x in range(0, screen_size[0],sector_size[0]) for y in range(0, screen_size[1], sector_size[1])] # all possible sections x and y top left corner of the sector positions
+    last_sector_index = len(sectors) - 1
+    left_column = screen_size[1] // sector_size[1]
+    top_row = screen_size[0] // sector_size[0]
+    size = (sector_size[0], sector_size[1])
+
+    illegal_positions_ranges = [range(0, left_column), range(0, left_column * top_row - 1, left_column), range(left_column - 1, left_column * top_row - 1, left_column), range(left_column * (top_row - 1), top_row * left_column - 1)]
+    illegal_positions = set()
+    for position_range in illegal_positions_ranges:
+        for position in position_range:
+            illegal_positions.add(position)
     
+    between_positions_len = (left_column * top_row) // snakes_count
+
+    steps = sector_size[0] // step
+    steps_ratio = snakes_ups[0] / step
+
     def generate_game_values():
         ''' Generates the initial values for the game, such as snake starting positions, food position, and other stats. This is separated into a function so it can be called again when restarting the game. '''
 
-        nonlocal crashes, alive, moves, start_up, steps, steps_ratio, pause, play_times, snakes, food, last_sector_index, sectors, size, illegal_positions, starting_position, points, game_started_time, points_blittable, actions
+        nonlocal crashes, alive, moves, food, points, game_started_time, points_blittable, actions
 
-        sectors = [(x, y) for x in range(0, screen_size[0],sector_size[0]) for y in range(0, screen_size[1], sector_size[1])] # all possible sections x and y top left corner of the sector positions
-        last_sector_index = len(sectors) - 1
-        size = (sector_size[0], sector_size[1])
+        snakes.clear()
+        starting_position.clear()
+        new_illegal_positions = illegal_positions.copy()
 
-        left_column = screen_size[1] // sector_size[1]
-        top_row = screen_size[0] // sector_size[0]
-
-        illegal_positions_ranges = [range(0, left_column), range(0, left_column * top_row - 1, left_column), range(left_column - 1, left_column * top_row - 1, left_column), range(left_column * (top_row - 1), top_row * left_column - 1)]
-        illegal_positions = set()
-        for position_range in illegal_positions_ranges:
-            for position in position_range:
-                illegal_positions.add(position)
-
-        snakes = []
-        starting_position = []
-
-        if all_settings['sequential starting position']:
-            between_positions_len = (left_column * top_row) // snakes_count
+        if sequential_starting_pos:
             for position in range(left_column + 1, left_column * top_row, between_positions_len):
-                    while position in illegal_positions:
+                    while position in new_illegal_positions:
                         position += 1
                     starting_position.append(position)
 
         for i in range(snakes_count):
-            if not all_settings['sequential starting position']:
+            if not sequential_starting_pos:
                 starting_position.append(randint(0, last_sector_index)) # Guess first
-                while starting_position[i] in illegal_positions: # Then check if we need to regenerate it
+                while starting_position[i] in new_illegal_positions: # Then check if we need to regenerate it
                     starting_position[i] = randint(0, last_sector_index)
-                illegal_positions.add(starting_position[i])
+                new_illegal_positions.add(starting_position[i])
 
             head = pygame.Rect(*sectors[starting_position[i]], *size)
             snake = [head]
@@ -666,21 +560,20 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         while food.topleft in snakes_topleft_positions:
             food.update(*sectors[randint(0, last_sector_index)], *size)
 
-        if log:
-            log_action('snakes starting positions generated', 'INFO')
 
         crashes = [False for _ in range(snakes_count)]
         alive = [True for _ in range(snakes_count)]
         moves = [[threading.Event(), threading.Event(), threading.Event(), threading.Event()] for _ in range(snakes_count)]
-        start_up = threading.Event()
-        steps = sector_size[0] // step
-        steps_ratio = snakes_ups[0] / step
-        pause = threading.Event()
-        play_times = []
+        start_up.clear()
+        pause.clear()
+        play_times.clear()
         points = 0
         points_blittable = create_text_blit_(formatted_points_text, all_settings['points text color'], scale_position_(all_settings['points text position']), 'points')
         game_started_time = datetime.now()
         actions = [[] for _ in range(snakes_count)] # 0 -> up, 1 -> left, 2 -> down, 3 -> right
+
+        if log:
+            log_action('Generated game values', 'INFO')
 
     generate_game_values()
     
@@ -816,9 +709,6 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     previous_settings_page_key = get_key(all_settings['previous settings page key'])
     special_effects_key = get_key(all_settings['special effects key'])
 
-    repeat_song = False
-    queue_song = False # Just if the user decides to cancel action
-
     if log:
         log_action('keys initialized', 'INFO')
 
@@ -834,7 +724,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
     def key_input_for():
         ''' handles key inputs using a for loop **Gets called each frame**! '''
 
-        nonlocal paused_drawer, draw_grid, grid_drawer, draw_performance, performance_drawer, play_last_song, master_volume, repeat_song, queue_song, show_time, time_drawer, show_special_effects, special_effects_drawer, crt_effect_thread
+        nonlocal paused_drawer, draw_grid, grid_drawer, draw_performance, performance_drawer, master_volume, show_time, time_drawer, show_special_effects, special_effects_drawer, crt_effect_thread
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -883,13 +773,19 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                 elif event.key == forward_music_key:
                     pygame.mixer.music.stop()
                 elif event.key == backward_music_key:
-                    play_last_song = True
+                    play_last_song.set()
                     pygame.mixer.music.stop()
                 elif event.key == repeat_current_song_key:
                     if mods & repeat_current_song_modifier_key:
-                        repeat_song = not repeat_song
+                        if repeat_song.is_set():
+                            repeat_song.clear()
+                        else:
+                            repeat_song.set()
                     else:
-                        queue_song = not queue_song
+                        if queue_song.is_set():
+                            queue_song.clear()
+                        else:
+                            queue_song.set()
                 elif event.key == restart_key:
                     reboot_current_script()
                 elif event.key == stopwatch_key:
@@ -903,9 +799,10 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                     raise NotImplementedError('Game crashed, because you pressed the crash button!')
                 elif event.key == special_effects_key:
                     show_special_effects = not show_special_effects
-                    if show_special_effects and show_crt_special_effect and not crt_effect_thread.is_alive():
-                        crt_effect_thread = threading.Thread(target=draw_crt_screen, daemon=True)
-                        crt_effect_thread.start()
+                    if show_special_effects:
+                        if show_crt_special_effect and not crt_effect_thread.is_alive():
+                            crt_effect_thread = threading.Thread(target=draw_crt_screen, daemon=True)
+                            crt_effect_thread.start()
                     special_effects_drawer = blit_special_effects if show_special_effects else noop
 
             if event.type == pygame.MOUSEWHEEL:
@@ -967,7 +864,6 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
 
     last_alive = 0 # Needs to be here
-    # @njit
     def movement(snake_index: int = 0) -> None:
         '''
         snakes and games logic function. Handles movement, collision detection, food eating, and more. Each snake has its own thread of this function.
@@ -1014,6 +910,10 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
         snake_pause_cycle_time = all_settings['snake pause cycle time']
 
+        portals: bool = all_settings['portals']
+        eating_speed_up: bool = all_settings['eating speeds you up']
+        eating_speed_up_amount: int = all_settings['eating speed you up amount']
+
         if faster_food_position:
             all_possible_positions = set(sectors)
 
@@ -1045,13 +945,14 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                 if sfx and audio:
                     eating_sfx.play()
 
-                if last_piece_food_color:
-                    colors[snake_index].append(colors[-1][0])
-                else:
-                    colors[snake_index] = create_color_list(len(snake) + 1)
+                if not image_assets:
+                    if last_piece_food_color:
+                        colors[snake_index].append(colors[-1][0])
+                    else:
+                        colors[snake_index] = create_color_list(len(snake) + 1)
 
-                if cycle_food_colors:
-                    colors[-1] = create_color_list(1, False)
+                    if cycle_food_colors:
+                        colors[-1] = create_color_list(1, False)
 
                 food.update(*sectors[randint(0, last_sector_index)], *size)
 
@@ -1114,16 +1015,12 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
             if moves[snake_index][0].is_set():
                 actions[snake_index].insert(0, 0)
-                snake_head_changer(0)
             if moves[snake_index][1].is_set():
                 actions[snake_index].insert(0, 1)
-                snake_head_changer(1)
             if moves[snake_index][2].is_set():
                 actions[snake_index].insert(0, 2)
-                snake_head_changer(2)
             if moves[snake_index][3].is_set():
                 actions[snake_index].insert(0, 3)
-                snake_head_changer(3)
             actions[snake_index].pop()
 
             # out of bounds detections, the portal trick.
@@ -1406,9 +1303,10 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
         for snake_index in range(len(snakes)):
             if alive[snake_index]:
                 snake = snakes[snake_index]
-                screen.blit(snake_heads[snake_index], snake[0])
-                for body_i in range(1, len(snake)):
-                    pygame.draw.rect(screen, colors[snake_index][body_i], snake[body_i])
+                screen.blit(snake_head_images[actions[snake_index][0]], snake[0])
+                for i in range(1, len(actions[snake_index])):
+                    snake = snakes[snake_index]
+                    screen.blit(snake_body_images[actions[snake_index][i]], snake[i])
         screen.blit(food_image, food)
 
     drawer = drawing_images if all_settings['use image assets'] else drawing
@@ -1636,13 +1534,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             pygame.mouse.set_visible(False)
             cursor_size = all_settings['cursor size']
 
-            frames = listdir(resource_path(f'.assets/.images/cursors/{all_settings['cursor name']}/'))
+            frames = listdir(resource_path(f'assets/images/cursors/{all_settings['cursor name']}/'))
             frame_count = len(frames)
 
             if frame_count == 1:
-                cursor_frame = scale_image(pygame.image.load(resource_path(f'.assets/.images/cursors/{all_settings['cursor name']}/0.png')).convert_alpha(), cursor_size)
+                cursor_frame = load_image(f'cursors/{all_settings['cursor name']}/0.png', cursor_size)
             else:
-                cursor_frames = cycle([scale_image(pygame.image.load(resource_path(f'.assets/.images/cursors/{all_settings['cursor name']}/{i}.png')).convert_alpha(), cursor_size) for i in range(frame_count)])
+                cursor_frames = cycle([load_image(f'/cursors/{all_settings['cursor name']}/{i}.png', cursor_size) for i in range(frame_count)])
                 cursor_frame = next(cursor_frames)
 
                 cursor_delay = all_settings['cursor delay']
@@ -1902,22 +1800,18 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
                         for snake_index in range(snakes_count):
                             actions[snake_index].append(0)
                             move(moves[snake_index][0], snake_index)
-                            snake_head_changer(0)
                     elif event.key == move_left_key:
                         for snake_index in range(snakes_count):
                             actions[snake_index].append(1)
                             move(moves[snake_index][1], snake_index)
-                            snake_head_changer(1)
                     elif event.key == move_down_key:
                         for snake_index in range(snakes_count):
                             actions[snake_index].append(2)
                             move(moves[snake_index][2], snake_index)
-                            snake_head_changer(2)
                     elif event.key == move_right_key:
                         for snake_index in range(snakes_count):
                             actions[snake_index].append(3)
                             move(moves[snake_index][3], snake_index)
-                            snake_head_changer(3)
                     elif event.key == open_settings_key:
                         settings_menu()
 
@@ -1954,12 +1848,11 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     if audio and music:
         if all_settings['playlist']:
-            threading.Thread(target=playlist, daemon=True).start()
+            threading.Thread(target=playlist, args=(music_files, pygame.mixer.music, played_music, play_last_song, queue_song, repeat_song, pause, music_exit_event, all_settings['playlist cycle time'], all_settings['sequential playlist'], all_settings['music fade out'], create_music_notification), daemon=True).start()
 
             # Just so that the playlist can launch at least a song, before we try to repeat it.
             while not pygame.mixer.music.get_busy():
                 sleep(0.001)
-            repeat_song = all_settings['repeat song']
         else:
             pygame.mixer.music.play(-1, fade_ms=all_settings['music fade out'])
 
@@ -1967,146 +1860,149 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             log_action('music initialized', 'INFO')
 
 
-    if all_settings['disable key inputs']:
-        key_handler = handle_pygame_quit_event
-    else:
-        if all_settings['slower key inputs']:
+    def launch_key_inputs():
+        '''Launches the key input handling, based on the settings. If key inputs are disabled, it will set the key handler to a function that only handles the quit event, so that the game can still be quit by pressing the quit key. If key inputs are slower, it will start a thread that handles the key inputs with a sleep in between to make them slower. Otherwise, it will set the key handler to the normal key input handling function.'''
 
-            key_input_cycle_time = all_settings['key inputs cycle time']
+        nonlocal key_handler
 
-            def thread_key_inputs():
-                '''Thread target for handling key inputs with a sleep in between to make them slower.'''
-
-                while any(alive):
-                    key_inputs()
-                    sleep(key_input_cycle_time)
-
-            threading.Thread(target=thread_key_inputs, daemon=True).start()
-            key_handler = noop
+        if all_settings['disable key inputs']:
+            key_handler = handle_pygame_quit_event
         else:
-            key_handler = key_inputs
+            if all_settings['slower key inputs']:
 
-        if log:
-            log_action('key inputs initialized', 'INFO')
+                key_input_cycle_time = all_settings['key inputs cycle time']
+
+                def thread_key_inputs():
+                    '''Thread target for handling key inputs with a sleep in between to make them slower.'''
+
+                    while any(alive):
+                        key_inputs()
+                        sleep(key_input_cycle_time)
+
+                threading.Thread(target=thread_key_inputs, daemon=True).start()
+                key_handler = noop
+            else:
+                key_handler = key_inputs
+
+            if log:
+                log_action('key inputs initialized', 'INFO')
 
 
-        threading.Thread(target=slow_key_inputs, daemon=True).start()
+            threading.Thread(target=slow_key_inputs, daemon=True).start()
 
-        if log:
-            log_action('slow key inputs initialized', 'INFO')
-
+            if log:
+                log_action('slow key inputs initialized', 'INFO')
 
     if gui:
-
         show_crt_special_effect = all_settings['show crt special effect']
-        special_effects_cycle_time = all_settings['special effects cycle time']
-        crt_lines_count = all_settings['crt lines count']
-        crt_background_color = all_settings['crt background color']
+        if show_crt_special_effect:
+            crt_special_effects_cycle_time = all_settings['crt special effects cycle time']
+            crt_lines_count = all_settings['crt lines count']
+            crt_background_color = all_settings['crt background color']
 
-        trailing_lines_color = all_settings['crt trailing lines color']
-        trailing_lines_width = all_settings['crt trailing lines width']
-        lines_color = all_settings['crt lines color']
-        lines_width = all_settings['crt lines width']
+            trailing_lines_color = all_settings['crt trailing lines color']
+            trailing_lines_width = all_settings['crt trailing lines width']
+            lines_color = all_settings['crt lines color']
+            lines_width = all_settings['crt lines width']
 
-        crt_down_times = all_settings['crt down times']
-        crt_less_down_times = all_settings['crt less down times']
-        crt_stationary_times = all_settings['crt stationary times']
-        crt_less_up_times = all_settings['crt less up times']
-        crt_up_times = all_settings['crt up times']
-        crt_amount_up = all_settings['crt amount up']
-        crt_less_amount_up = all_settings['crt less amount up']
-        crt_less_amount_down = all_settings['crt less amount down']
-        crt_amount_down = all_settings['crt amount down']
+            crt_down_times = all_settings['crt down times']
+            crt_less_down_times = all_settings['crt less down times']
+            crt_stationary_times = all_settings['crt stationary times']
+            crt_less_up_times = all_settings['crt less up times']
+            crt_up_times = all_settings['crt up times']
+            crt_amount_up = all_settings['crt amount up']
+            crt_less_amount_up = all_settings['crt less amount up']
+            crt_less_amount_down = all_settings['crt less amount down']
+            crt_amount_down = all_settings['crt amount down']
 
-        if all_settings['crt background rgb panel']:
-            background_mesh_grid_colors = all_settings['crt background rgb panel color']
-            if type(background_mesh_grid_colors) == int:
-                color_count = background_mesh_grid_colors
-                background_mesh_grid_colors = []
-                for _ in range(color_count):
-                    background_mesh_grid_colors.append([randint(0, 255), randint(0, 255), randint(0, 255)])
-            if all_settings['crt background rgb panel draw sequentially']:
-                background_mesh_grid_colors = cycle(background_mesh_grid_colors)
-                def get_pixel_color():
-                    return next(background_mesh_grid_colors)
-            else:
-                def get_pixel_color():
-                    return choice(background_mesh_grid_colors)
+            if all_settings['crt background rgb panel']:
+                background_mesh_grid_colors = all_settings['crt background rgb panel color']
+                if type(background_mesh_grid_colors) == int:
+                    color_count = background_mesh_grid_colors
+                    background_mesh_grid_colors = []
+                    for _ in range(color_count):
+                        background_mesh_grid_colors.append([randint(0, 255), randint(0, 255), randint(0, 255)])
+                if all_settings['crt background rgb panel draw sequentially']:
+                    background_mesh_grid_colors = cycle(background_mesh_grid_colors)
+                    def get_pixel_color():
+                        return next(background_mesh_grid_colors)
+                else:
+                    def get_pixel_color():
+                        return choice(background_mesh_grid_colors)
 
-                
-            crt_background_rgb_panel_transparency = all_settings['crt background rgb panel transparency']
-            p_x, p_y = all_settings['crt background rgb panel pixel size']
-
-            background_mesh_grid = pygame.Surface(screen_size, pygame.SRCALPHA)
-
-            # Define the ranges based on priority
-            range_x = range(0, screen_size[0], p_y)
-            range_y = range(0, screen_size[1], p_x)
-
-            # Determine the loop nesting order
-            loops = (range_x, range_y) if all_settings['crt background rgb panel x axis priority'] else (range_y, range_x)
-
-            # Iterate (Note: x/y assignment depends on the loop order)
-            for outer in loops[0]:
-                for inner in loops[1]:
-                    # If order matters for the variables themselves:
-                    x, y = (outer, inner) if loops[0] == range_x else (inner, outer)
                     
-                    pygame.draw.rect(background_mesh_grid, [*get_pixel_color(), crt_background_rgb_panel_transparency], [x, y, p_x, p_y])
+                crt_background_rgb_panel_transparency = all_settings['crt background rgb panel transparency']
+                p_x, p_y = all_settings['crt background rgb panel pixel size']
 
-            def draw_crt_background():
-                overlay.blit(background_mesh_grid, (0, 0))
-        else:
-            def draw_crt_background():
-                overlay.fill(crt_background_color)
+                background_mesh_grid = pygame.Surface(screen_size, pygame.SRCALPHA)
 
-        def draw_crt_screen():
-            ''' Draws the CRT screen effect on the overlay surface. The effect is drawn by drawing horizontal lines across the screen, with a certain spacing between them, and then moving them down the screen over time. '''
+                # Define the ranges based on priority
+                range_x = range(0, screen_size[0], p_y)
+                range_y = range(0, screen_size[1], p_x)
 
-            def draw_crt_lines(move_amount: int):
-                '''
-                Draws the CRT lines on the overlay surface, and moves them down the screen by the move_amount. The lines are drawn by drawing a rectangle with the crt_background_color, and then drawing lines with the trailing_lines_color and lines_color at the positions specified in the pos list. After drawing the lines, it sleeps for the special_effects_cycle_time, and then moves the lines down by the move_amount. If a line goes off the screen, it wraps around to the other side. 
-                
-                :param move_amount: the amount to move the lines down the screen, in pixel
-                :type move_amount: int
-                '''
+                # Determine the loop nesting order
+                loops = (range_x, range_y) if all_settings['crt background rgb panel x axis priority'] else (range_y, range_x)
 
-                draw_crt_background()
+                # Iterate (Note: x/y assignment depends on the loop order)
+                for outer in loops[0]:
+                    for inner in loops[1]:
+                        # If order matters for the variables themselves:
+                        x, y = (outer, inner) if loops[0] == range_x else (inner, outer)
+                        
+                        pygame.draw.rect(background_mesh_grid, [*get_pixel_color(), crt_background_rgb_panel_transparency], [x, y, p_x, p_y])
 
-                for i in range(crt_lines_count):
-                    pygame.draw.line(overlay, trailing_lines_color, (0, pos[i] - 8), (screen_size[0], pos[i] - 8), trailing_lines_width)
-                    pygame.draw.line(overlay, lines_color, (0, pos[i]), (screen_size[0], pos[i]), lines_width)
+                def draw_crt_background():
+                    overlay.blit(background_mesh_grid, (0, 0))
+            else:
+                def draw_crt_background():
+                    overlay.fill(crt_background_color)
 
-                sleep(special_effects_cycle_time)
+            def draw_crt_screen():
+                ''' Draws the CRT screen effect on the overlay surface. The effect is drawn by drawing horizontal lines across the screen, with a certain spacing between them, and then moving them down the screen over time. '''
 
-                for i in range(crt_lines_count):
-                    pos[i] += move_amount
-                    if pos[i] > screen_size[1]:
-                        pos[i] = 0
-                    elif pos[i] < 0:
-                        pos[i] = screen_size[1]
+                def draw_crt_lines(move_amount: int):
+                    '''
+                    Draws the CRT lines on the overlay surface, and moves them down the screen by the move_amount. The lines are drawn by drawing a rectangle with the crt_background_color, and then drawing lines with the trailing_lines_color and lines_color at the positions specified in the pos list. After drawing the lines, it sleeps for the special_effects_cycle_time, and then moves the lines down by the move_amount. If a line goes off the screen, it wraps around to the other side. 
+                    
+                    :param move_amount: the amount to move the lines down the screen, in pixel
+                    :type move_amount: int
+                    '''
 
-            pos = [i for i in range(0, screen_size[1], screen_size[1] // crt_lines_count)]
+                    draw_crt_background()
 
-            while show_crt_special_effect:
+                    for i in range(crt_lines_count):
+                        pygame.draw.line(overlay, trailing_lines_color, (0, pos[i] - 8), (screen_size[0], pos[i] - 8), trailing_lines_width)
+                        pygame.draw.line(overlay, lines_color, (0, pos[i]), (screen_size[0], pos[i]), lines_width)
 
-                for _ in range(crt_down_times):
-                    draw_crt_lines(crt_amount_up)
+                    sleep(crt_special_effects_cycle_time)
 
-                for _ in range(crt_less_down_times):
-                    draw_crt_lines(crt_less_amount_up)
-                
-                sleep(special_effects_cycle_time * crt_stationary_times)
+                    for i in range(crt_lines_count):
+                        pos[i] += move_amount
+                        if pos[i] > screen_size[1]:
+                            pos[i] = 0
+                        elif pos[i] < 0:
+                            pos[i] = screen_size[1]
 
-                for _ in range(crt_less_up_times):
-                    draw_crt_lines(crt_less_amount_down)
+                pos = [i for i in range(0, screen_size[1], screen_size[1] // crt_lines_count)]
 
-                for _ in range(crt_up_times):
-                    draw_crt_lines(crt_amount_down)
+                while show_crt_special_effect:
 
-        if show_special_effects:
+                    for _ in range(crt_down_times):
+                        draw_crt_lines(crt_amount_up)
+
+                    for _ in range(crt_less_down_times):
+                        draw_crt_lines(crt_less_amount_up)
+                    
+                    sleep(crt_special_effects_cycle_time * crt_stationary_times)
+
+                    for _ in range(crt_less_up_times):
+                        draw_crt_lines(crt_less_amount_down)
+
+                    for _ in range(crt_up_times):
+                        draw_crt_lines(crt_amount_down)
+
+            crt_effect_thread = threading.Thread(target=draw_crt_screen, daemon=True)
             if show_crt_special_effect:
-                crt_effect_thread = threading.Thread(target=draw_crt_screen, daemon=True)
                 crt_effect_thread.start()
 
         if log:
@@ -2116,16 +2012,13 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
     # Launching snake logic
 
-    snake_threads = list[threading.Thread]
+    snake_threads = []
     key_handler: Callable[[], None]
 
     def launch_game_threads():
         ''' Launches all of the necessary threads for the game logic, like the snake movement threads, as well as all other threads'''
 
-        nonlocal snake_threads, repeat_song, key_handler
-
-        snake_threads = []
-
+        snake_threads.clear()
         for snake_index in range(snakes_count):
             snake_threads.append(threading.Thread(target=movement, daemon=True, args=[snake_index]))
             snake_threads[snake_index].start()
@@ -2135,6 +2028,8 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
 
 
     launch_game_threads()
+
+    launch_key_inputs()
 
     # GUI main loop
 
@@ -2328,6 +2223,7 @@ def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Que
             generate_game_values()
             skip_start_menu()
             launch_game_threads()
+            launch_key_inputs()
             gui_loop_handler()
             game_left_cleanup()
             save_info()
