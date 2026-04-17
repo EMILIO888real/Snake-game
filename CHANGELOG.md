@@ -1,3 +1,20 @@
+## [0.31.0] - 2026-04-17
+
+### Added
+- SSH signing key for commit verification.
+
+### Changed
+- Rewrote, refactored and cleaned up a lot of code.
+- Local git user to use the github email to credit contributors.
+- Publish tool to improve reliability. Also the architecture is completely different
+
+### Fixed
+- Running without gui and using image assets, now the program disables that setting if the gui is disabled.
+- git release race condition. Now before releasing a git release the publishing tool will wait until the push is fully processed on GitHub.
+- Publishing tool bugs.
+
+---
+
 ## [0.30.0] - 2026-04-05
 
 ### Added
@@ -7,7 +24,7 @@
 ### Changed
 - Upgraded the publishing tool even more to be more reliable. Also will soon in the future publish it as another project under MIT license.
 - Cleaned up the release post text.
-- Up2026-04-05d README to reflect the latest changes.
+- Updated README to reflect the latest changes.
 - Updated and refactored a lot of code in main file.
 - Moved and organized code to other files like the custom modules getting imported.
 - Special effects settings now each have their own settings and there is also a global toggle `draw special effects`.

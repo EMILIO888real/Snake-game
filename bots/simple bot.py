@@ -48,7 +48,7 @@ if not Path('settings.json').exists():
 with open('settings.json', 'r') as f:
     user_settings: dict = load(f)
 
-required_settings = {'serialize data': True} # Need to serialize data if you are using processes.           Might work without, but isn't recommended.
+required_settings = {'serialize data': True, 'snakes count': snakes_count} # Need to serialize data if you are using processes.           Might work without, but isn't recommended.
 
 # Makes the game easy to run quickly multiple times
 recommended_settings = {'ups': 'max speed', # Makes the game run fast

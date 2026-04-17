@@ -56,6 +56,7 @@ for more info use info(func) function on specific methods
 # import all outside modules neded here, so we don't try to import them each function call
 
 from decimal import Decimal
+from math import ceil
 import sys
 from collections.abc import Collection
 from os import execl, path, replace, listdir, mkdir
@@ -89,7 +90,7 @@ def clear_terminal_s() -> None:
     from os import system, name
     system('cls' if name == 'nt' else 'clear')
 
-def clear_lines(lines_to_clear:int = 1, force_clear:bool = True) -> None:
+def clear_lines(lines_to_clear:int = 1, force_clear:bool = True, clear_formatting: bool = False) -> None:
     '''Clears specified lines of text from the terminal
     using ANSI escape codes
     
@@ -98,6 +99,9 @@ def clear_lines(lines_to_clear:int = 1, force_clear:bool = True) -> None:
     :param force_clear: specify whether to truly clear specified lines or just move the cursor back
     :type force_clear: bool
     '''
+    if clear_formatting:
+        reset_formatting()
+
     text_clearer = '\033[F'
     if force_clear:
         text_clearer += '\033[2K'
@@ -1005,7 +1009,7 @@ def fade_animation(background_color: list[int] = None):
     # Could also do it the other way around.
     pass
 
-def read_json(file_name: str | Path, default_values: Optional[dict] = {}, indent: int = 4) -> dict:
+def read_json(file_name: str | Path, default_values: Optional[dict] = {}, indent: int = 4, create: bool = True) -> dict:
     '''
     Reads a JSON file and returns the data as a dictionary. If the file does not exist, it creates it with the default values.
     
@@ -1015,11 +1019,13 @@ def read_json(file_name: str | Path, default_values: Optional[dict] = {}, indent
     :type default_values: dict
     :param indent: The number of spaces to use for indentation in the JSON file
     :type indent: int
+    :param create: If True, creates the file with default values if it does not exist
+    :type create: bool
     :return: The data from the JSON file as a dictionary
     :rtype: dict
     '''
 
-    if not Path(file_name).exists():
+    if create and not Path(file_name).exists():
         with open(file_name, 'w') as f:
             dump(default_values, f, indent=indent)
     with open(file_name, 'r') as f:
@@ -1331,6 +1337,17 @@ def load_clean_decimal(num: float | int | str) -> Decimal:
         '''
 
         return Decimal(str(num))
+
+def set_background_color(red: int, green: int, blue: int) -> None:
+    print(f'\033[48;2;{red};{green};{blue}m' ,end='')
+
+def lines_used(text, width):
+    return sum(max(1, ceil(len(line) / width)) for line in text.splitlines() or [text])
+
+def print_bg_colored_text(text: str, red: int, green: int, blue: int, terminal_width: int) -> None:
+    set_background_color(red, green, blue)
+    print(text)
+    clear_lines(lines_used(text, terminal_width), clear_formatting=True)
 
 if __name__ == '__main__':
     # print('This module is not meant to be run directly')

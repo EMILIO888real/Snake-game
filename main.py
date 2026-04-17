@@ -3,6 +3,7 @@ Snake game made in python with pygame. Made by your's truly. Check README.md for
 '''
 
 from datetime import datetime, timedelta
+from queue import Queue
 
 import_time = datetime.now()
 
@@ -27,14 +28,14 @@ from custom_modules.ege import Advanced_clock, create_text_blit, playlist, scale
 
 import_time = datetime.now() - import_time
 
-def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Optional[threading.Queue] = None) -> None:
+def main(info_queues: Optional[list[Queue]] = None, commands_queue: Optional[Queue] = None) -> None:
     '''
     Main function of the snake game.
     
     :param info_queues: list of queues to send snake info to
-    :type info_queues: Optional[list[threading.Queue]]
+    :type info_queues: Optional[list[Queue]]
     :param commands_queue: queue to receive commands from
-    :type commands_queue: Optional[threading.Queue]
+    :type commands_queue: Optional[Queue]
     '''
 
     def read_json(file_name: str, default_values: Optional[dict] = {}, indent: int = 4) -> dict:
@@ -56,7 +57,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
 
     if not Path(resource_path('assets/integrity.json')).exists():
         print_colored_text('Missing integrity file! Please make sure you have all the files and try again. If you are sure you have all the files, please report this to a developer via Discord or Github!', [255, 0, 0])
-        exit()
+        sys.exit()
 
     integrity_cwd = read_json('assets/integrity.json')['CWD']
     cwd = tree(resource_path('.'))
@@ -226,6 +227,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
     else:
         all_settings['skip start menu'] = True
         all_settings['skip end screen'] = True
+        all_settings['use image assets'] = False
 
 
     background_color: list[int] = all_settings['background color']
@@ -352,7 +354,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
 
             def create_music_notification():
                 notification_music_name = Path(played_music[-1]).name
-                create_notification(create_text_blit_(format_text(music_notification_text, music_notification_variable_index, notification_music_name[:notification_music_name.rfind('.')]), music_notification_text_color, music_notification_text_position, 'music notification'), 'music')
+                create_notification(_create_text_blit(format_text(music_notification_text, music_notification_variable_index, notification_music_name[:notification_music_name.rfind('.')]), music_notification_text_color, music_notification_text_position, 'music notification'), 'music')
             
             def music_exit_event() -> bool:
                 return not any(alive)
@@ -384,7 +386,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
         if log:
             log_action('audio initialized', 'INFO')
 
-    def create_text_blit_full_(text: str, color: Sequence[int], font: str, **anchor: tuple[int | float, int | float]) -> pygame.Surface:
+    def _create_text_blit_full(text: str, color: Sequence[int], font: str, **anchor: tuple[int | float, int | float]) -> pygame.Surface:
         '''
         Wrapper for create_text_blit function.
         
@@ -402,7 +404,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
 
         return create_text_blit(text, color, fonts[font], **anchor)
     
-    def create_text_blit_(text: str, color: Sequence[int], position: tuple[int | float, int | float], font: str) -> pygame.Surface:
+    def _create_text_blit(text: str, color: Sequence[int], position: tuple[int | float, int | float], font: str) -> pygame.Surface:
         '''
         Wrapper for create_text_blit function with center anchor.
         
@@ -416,7 +418,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
         :type font: str
         '''
 
-        return create_text_blit_full_(text, color, font, center=position)
+        return _create_text_blit_full(text, color, font, center=position)
     
     def create_text_blit_simple(setting: str, var: Optional[Any] = None) -> pygame.Surface:
         '''
@@ -437,7 +439,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
             text = all_settings[setting]
         else:
             text = format_text(all_settings[setting], all_settings[f'{setting} variable index'], var)
-        return create_text_blit_(text, all_settings[f'{setting} color'], scale_position_(all_settings[f'{setting} position']), setting[:-5])
+        return _create_text_blit(text, all_settings[f'{setting} color'], scale_position_(all_settings[f'{setting} position']), setting[:-5])
     
     # Generates and handles some start up for colors
 
@@ -488,7 +490,6 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
     
     crashes: list[bool]
     alive: list[bool]
-    moves: list[list[threading.Event]]
     steps: int
     steps_ratio: float
     play_times: list[float]
@@ -496,19 +497,22 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
     last_sector_index: int
     game_started_time: datetime
     points_blittable: tuple[pygame.Surface, pygame.Rect]
-    actions: list[list[int]] # 0 -> up, 1 -> left, 2 -> down, 3 -> right
 
     step: int = all_settings['step'] # Needs to be able to cleanly divisible by sector size, both x and y. If you change this while the script is running be sure to recalculate steps
     sequential_starting_pos = all_settings['sequential starting position']
 
-    points = 0
+    points = 0 # has to be above formatted_points_text
     formatted_points_text = format_text(all_settings['points text'], all_settings['points text variable index'], points)
+
     keep_restarting = threading.Event()
-    snakes = []
     starting_position = []
     pause = threading.Event()
     start_up = threading.Event()
     play_times = []
+    snakes = []
+    moves = moves = [[threading.Event(), threading.Event(), threading.Event(), threading.Event()] for _ in range(snakes_count)]
+    actions = [[] for _ in range(snakes_count)] # 0 -> up, 1 -> left, 2 -> down, 3 -> right
+    previous_directions = [] # To effectively clear the previously selected move
 
     # These variables don't change from restarting the game, therefore are calculated only once
 
@@ -518,13 +522,20 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
     top_row = screen_size[0] // sector_size[0]
     size = (sector_size[0], sector_size[1])
 
+    # Generates all of the illegal positions
+
     illegal_positions_ranges = [range(0, left_column), range(0, left_column * top_row - 1, left_column), range(left_column - 1, left_column * top_row - 1, left_column), range(left_column * (top_row - 1), top_row * left_column - 1)]
     illegal_positions = set()
     for position_range in illegal_positions_ranges:
         for position in position_range:
             illegal_positions.add(position)
-    
-    between_positions_len = (left_column * top_row) // snakes_count
+
+    # Generates all of the starting positions in case they are sequential since they don't change
+    if sequential_starting_pos:
+        for position in range(left_column + 1, left_column * top_row, (left_column * top_row) // snakes_count):
+                while position in illegal_positions:
+                    position += 1
+                starting_position.append(position)
 
     steps = sector_size[0] // step
     steps_ratio = snakes_ups[0] / step
@@ -532,45 +543,45 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
     def generate_game_values():
         ''' Generates the initial values for the game, such as snake starting positions, food position, and other stats. This is separated into a function so it can be called again when restarting the game. '''
 
-        nonlocal crashes, alive, moves, food, points, game_started_time, points_blittable, actions
+        nonlocal crashes, alive, food, points, game_started_time, points_blittable
 
-        snakes.clear()
-        starting_position.clear()
-        new_illegal_positions = illegal_positions.copy()
-
-        if sequential_starting_pos:
-            for position in range(left_column + 1, left_column * top_row, between_positions_len):
-                    while position in new_illegal_positions:
-                        position += 1
-                    starting_position.append(position)
-
-        for i in range(snakes_count):
-            if not sequential_starting_pos:
+        # Generates unique random starting positions only if we aren't using sequential generation
+        if not sequential_starting_pos:
+            starting_position.clear()
+            new_illegal_positions = illegal_positions.copy()
+            for i in range(snakes_count):
                 starting_position.append(randint(0, last_sector_index)) # Guess first
                 while starting_position[i] in new_illegal_positions: # Then check if we need to regenerate it
                     starting_position[i] = randint(0, last_sector_index)
                 new_illegal_positions.add(starting_position[i])
+        
+        snakes.clear()
 
-            head = pygame.Rect(*sectors[starting_position[i]], *size)
-            snake = [head]
-            snakes.append(snake)
+        for i in range(snakes_count):
+            snakes.append([pygame.Rect(*sectors[starting_position[i]], *size)])
 
-        snakes_topleft_positions = set(snakes[snake_i][0].topleft for snake_i in range(snakes_count)) # just for the food check
+        # Makes sure the food is on an unoccupied tile
         food = pygame.Rect(*sectors[randint(0, last_sector_index)], *size)
-        while food.topleft in snakes_topleft_positions:
+        while food.topleft in set(snakes[snake_i][0].topleft for snake_i in range(snakes_count)): # Snake topleft positions
             food.update(*sectors[randint(0, last_sector_index)], *size)
 
-
-        crashes = [False for _ in range(snakes_count)]
-        alive = [True for _ in range(snakes_count)]
-        moves = [[threading.Event(), threading.Event(), threading.Event(), threading.Event()] for _ in range(snakes_count)]
+        # Resets all mutable object
+        for snake_moves in moves:
+            for each_move in snake_moves:
+                each_move.clear()
         start_up.clear()
         pause.clear()
         play_times.clear()
+        for snake_action in actions:
+            snake_action.clear()
+        previous_directions.clear()
+
+        # Remake's all immutable objects
+        crashes = [False for _ in range(snakes_count)]
+        alive = [True for _ in range(snakes_count)]
         points = 0
-        points_blittable = create_text_blit_(formatted_points_text, all_settings['points text color'], scale_position_(all_settings['points text position']), 'points')
+        points_blittable = _create_text_blit(formatted_points_text, all_settings['points text color'], scale_position_(all_settings['points text position']), 'points')
         game_started_time = datetime.now()
-        actions = [[] for _ in range(snakes_count)] # 0 -> up, 1 -> left, 2 -> down, 3 -> right
 
         if log:
             log_action('Generated game values', 'INFO')
@@ -581,20 +592,35 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
         log_action('other stats initialized', 'INFO')
 
 
-    def move(direction: threading.Event, snake_index: int = 0) -> None:
+    def move(direction: int, snake_index: int = 0) -> None:
         '''
-        Docstring for move, still not done, **needs to improve more**!
+        Handles the movement of the snake by setting the appropriate move event based on the given direction and snake index. It also clears the previous move event to ensure that only one move is active at a time for each snake.
         
-        :param direction: Description
-        :type direction: threading.Event
+        :param direction: The direction to move the snake, where 0 is up, 1 is left, 2 is down, and 3 is right
+        :type direction: int
+        :param snake_index: The index of the snake to move, defaults to 0
+        :type snake_index: int, optional
+        
         '''
 
-        for one_of_directions in moves[snake_index]:
-            if direction == one_of_directions:
-                one_of_directions.set()
-            else:
-                one_of_directions.clear()
+        moves[snake_index][previous_directions[snake_index]].clear()
+        previous_directions[snake_index] = direction
+        moves[snake_index][direction].set()
 
+    
+    def init_move_buffer(direction: int, snake_index: int = 0) -> None:
+        '''
+        Initializes the move buffer for a snake by appending the given direction to the previous_directions list and the actions list for the specified snake index. This is used to keep track of the current and previous moves for each snake.
+        
+        :param direction: The initial direction to set for the snake, where 0 is up, 1 is left, 2 is down, and 3 is right
+        :type direction: int
+        :param snake_index: The index of the snake to initialize the move buffer for, defaults to 0
+        :type snake_index: int, optional
+        
+        '''
+        previous_directions.append(direction)
+        actions[snake_index].append(direction)
+        move(direction, snake_index)
 
 
     def update_all_volumes() -> None:
@@ -611,7 +637,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
     percentage_notification = all_settings['percentage volume notification']
 
     def volume_change_notification():
-        notifications.append((create_text_blit_(format_text(volume_text, volume_variable_index, round(master_volume * 100) if percentage_notification else round(master_volume, 2)), volume_color, volume_text_position, 'volume notification'), 'volume'))
+        notifications.append((_create_text_blit(format_text(volume_text, volume_variable_index, round(master_volume * 100) if percentage_notification else round(master_volume, 2)), volume_color, volume_text_position, 'volume notification'), 'volume'))
 
     def change_volume(increment: float) -> None:
         ''' Changes the master volume by the given increment, then updates all volumes and creates a notification.
@@ -739,16 +765,16 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
                         pause.clear()
                 elif event.key == move_up_key:
                     if actions[0][0] != 2:
-                        move(moves[0][0])
+                        move(0)
                 elif event.key == move_left_key:
                     if actions[0][0] != 3:
-                        move(moves[0][1])
+                        move(1)
                 elif event.key == move_down_key:
                     if actions[0][0] != 0:
-                        move(moves[0][2])
+                        move(2)
                 elif event.key == move_right_key:
                     if actions[0][0] != 1:
-                        move(moves[0][3])
+                        move(3)
 
             if event.type == pygame.KEYUP:
                 mods = pygame.key.get_mods()
@@ -796,7 +822,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
                 elif event.key == disable_soft_restart_key:
                     keep_restarting.set()
                 elif event.key == crash_key:
-                    raise NotImplementedError('Game crashed, because you pressed the crash button!')
+                    raise Exception('Game crashed, because you pressed the crash button!')
                 elif event.key == special_effects_key:
                     show_special_effects = not show_special_effects
                     if show_special_effects:
@@ -832,13 +858,13 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
             command = received_command[1]
 
             if command == 0 and actions[snake_index][0] != 2:
-                move(moves[snake_index][0], snake_index)
+                move(0, snake_index)
             elif command == 1 and actions[snake_index][0] != 3:
-                move(moves[snake_index][1], snake_index)
+                move(1, snake_index)
             elif command == 2 and actions[snake_index][0] != 0:
-                move(moves[snake_index][2], snake_index)
+                move(2, snake_index)
             elif command == 3 and actions[snake_index][0] != 1:
-                move(moves[snake_index][3], snake_index)
+                move(3, snake_index)
             elif command == 4:
                 alive[snake_index] = False
             elif command == 5:
@@ -983,7 +1009,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
                 snake.append(body)
                 actions[snake_index].append(actions[snake_index][-1])
                 points += 1
-                points_blittable = create_text_blit_(format_text(points_text, points_text_var_index, points), points_text_color, scale_position_(points_text_position), 'points')
+                points_blittable = _create_text_blit(format_text(points_text, points_text_var_index, points), points_text_color, scale_position_(points_text_position), 'points')
                 if eating_speed_up:
                     ups += eating_speed_up_amount
                     if optimize_speed_up:
@@ -1272,7 +1298,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
 
         # keys = pygame.key.get_pressed() # For when I want to add button presses that aren't toggles
 
-    paused_blittable = create_text_blit_(all_settings['paused text'], all_settings['paused text color'], scale_position_(all_settings['paused text position']), 'paused')
+    paused_blittable = _create_text_blit(all_settings['paused text'], all_settings['paused text color'], scale_position_(all_settings['paused text position']), 'paused')
 
     # For the drawing function, we can precalculate some values to optimize it a little bit, since it is called every frame and has some calculations in it.
 
@@ -1357,7 +1383,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
     else:
         formatted_performance_text = format_text(all_settings['performance text'], all_settings['performance text variable ups index'], ups_text_space)
         formatted_performance_text = format_text(formatted_performance_text, all_settings['performance text variable fps index'] + len(formatted_performance_text) - len(all_settings['performance text']), fps_text_space)
-    performance_blittable = create_text_blit_full_(formatted_performance_text, all_settings['performance text color'], 'performance', topleft=scale_position_(all_settings['performance text position']))
+    performance_blittable = _create_text_blit_full(formatted_performance_text, all_settings['performance text color'], 'performance', topleft=scale_position_(all_settings['performance text position']))
 
     first_ups_clock = ups_clocks[0]
     fps_text_position = scale_position_(all_settings['performance text position'])
@@ -1431,8 +1457,8 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
 
         current_fps = format_fps(fps_clock.get_fps())
         current_ups = format_ups(first_ups_clock.get_fps())
-        fps_blit = create_text_blit_full_(str(current_fps), fps_color(current_fps), 'performance', topleft=fps_text_position)
-        ups_blit = create_text_blit_full_(str(current_ups), ups_color(current_ups), 'performance', topleft=ups_text_position)
+        fps_blit = _create_text_blit_full(str(current_fps), fps_color(current_fps), 'performance', topleft=fps_text_position)
+        ups_blit = _create_text_blit_full(str(current_ups), ups_color(current_ups), 'performance', topleft=ups_text_position)
 
     _create_performance_blits()
 
@@ -1484,7 +1510,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
         nonlocal time_blit
 
         while show_time:
-            time_blit = create_text_blit_(format_text(time_text, time_text_var_index, format_time((datetime.now() - game_started_time).total_seconds(), show_time_format)), time_text_color, scale_position_(time_position), 'time')
+            time_blit = _create_text_blit(format_text(time_text, time_text_var_index, format_time((datetime.now() - game_started_time).total_seconds(), show_time_format)), time_text_color, scale_position_(time_position), 'time')
             sleep(show_time_cycle)
 
     def draw_time():
@@ -1507,23 +1533,20 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
     if log:
         log_action('game booted up', 'INFO')
 
-
     def skip_start_menu():
         '''Skips the start menu by sending the start direction command to all snakes, and moving them in that direction once, so that the game can start.'''
 
-        nonlocal actions
-
         start_direction = all_settings['start direction']
         for snake_index in range(snakes_count):
-            actions[snake_index].append(randint(0, 3) if start_direction == 4 else start_direction)
-            move(moves[snake_index][randint(0, 3) if start_direction == 4 else start_direction], snake_index)
+            move_direction = randint(0, 3) if start_direction == 4 else start_direction
+            init_move_buffer(move_direction, snake_index)
 
     if all_settings['skip start menu']:
         skip_start_menu()
     else:
         start_menu_text = format_text(all_settings['start menu text'], all_settings['start menu text variable index'], f'{all_settings['move up key']}{all_settings['move left key']}{all_settings['move down key']}{all_settings['move right key']}'.upper())
-        start_menu_blit = create_text_blit_(start_menu_text, all_settings['start menu text color'], scale_position_(all_settings['start menu text position']), 'start menu')
-        version_blit = create_text_blit_(format_text(all_settings['version text'], all_settings['version text variable index'], all_settings['version']), all_settings['version text color'], scale_position_(all_settings['version text position']), 'version')
+        start_menu_blit = _create_text_blit(start_menu_text, all_settings['start menu text color'], scale_position_(all_settings['start menu text position']), 'start menu')
+        version_blit = _create_text_blit(format_text(all_settings['version text'], all_settings['version text variable index'], all_settings['version']), all_settings['version text color'], scale_position_(all_settings['version text position']), 'version')
 
         settings_blit = create_text_blit_simple('settings')
         switch_settings_mode_blit = create_text_blit_simple('switch settings mode')
@@ -1583,13 +1606,13 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
             setting_position = settings_start_position.copy()
             settings_blits = [] # This is for the calculation logic
             for setting in settings.items():
-                settings_blits.append(create_text_blit_full_(f'{setting[0]}: {setting[1]}', all_settings['setting text color'], 'setting', topleft=setting_position))
+                settings_blits.append(_create_text_blit_full(f'{setting[0]}: {setting[1]}', all_settings['setting text color'], 'setting', topleft=setting_position))
                 setting_position[1] += spacing
             
             setting_position = settings_start_position.copy()
             config_blits = [] # This is for the calculation logic
             for setting in config.items():
-                config_blits.append(create_text_blit_full_(f'{setting[0]}: {setting[1]}', all_settings['setting text color'], 'setting', topleft=setting_position))
+                config_blits.append(_create_text_blit_full(f'{setting[0]}: {setting[1]}', all_settings['setting text color'], 'setting', topleft=setting_position))
                 setting_position[1] += spacing
 
             last_setting_position = -((len(settings_blits) + 1) * spacing - screen_size[1])
@@ -1598,14 +1621,14 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
 
             settings_descriptions_color = all_settings['setting description text color']
             with open(resource_path('SETTINGS.md')) as f:
-                settings_descriptions_blits = [create_text_blit_full_(description[description.find(':') + 1:].replace('`', ''), settings_descriptions_color, 'setting description', topleft=(0, 0))[0] for description in f.read().splitlines()[2:]]
+                settings_descriptions_blits = [_create_text_blit_full(description[description.find(':') + 1:].replace('`', ''), settings_descriptions_color, 'setting description', topleft=(0, 0))[0] for description in f.read().splitlines()[2:]]
             with open(resource_path('CONFIGURATION.md')) as f:
-                config_descriptions_blits = [create_text_blit_full_(description[description.find(':') + 1:].replace('`', ''), settings_descriptions_color, 'setting description', topleft=(0, 0))[0] for description in f.read().splitlines()[2:]]
+                config_descriptions_blits = [_create_text_blit_full(description[description.find(':') + 1:].replace('`', ''), settings_descriptions_color, 'setting description', topleft=(0, 0))[0] for description in f.read().splitlines()[2:]]
 
             for _ in range(len(settings) - len(settings_descriptions_blits) + 1):
-                settings_descriptions_blits.append(create_text_blit_full_('Not documented yet!', settings_descriptions_color, 'setting description', topleft=(0, 0))[0])
+                settings_descriptions_blits.append(_create_text_blit_full('Not documented yet!', settings_descriptions_color, 'setting description', topleft=(0, 0))[0])
             for _ in range(len(config) - len(config_descriptions_blits) + 1):
-                config_descriptions_blits.append(create_text_blit_full_('Not documented yet!', settings_descriptions_color, 'setting description', topleft=(0, 0))[0])
+                config_descriptions_blits.append(_create_text_blit_full('Not documented yet!', settings_descriptions_color, 'setting description', topleft=(0, 0))[0])
             
             current_settings_blits = settings_blits
             current_last_setting_position = last_setting_position
@@ -1694,7 +1717,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
                                 text_input = text_input[:-1]
                             else:
                                 text_input += key
-                            current_settings_blits[setting_index] = create_text_blit_full_(f'{setting[0]}: {text_input}', all_settings['setting text color'], 'setting', topleft=current_settings_blits[setting_index][1].topleft)
+                            current_settings_blits[setting_index] = _create_text_blit_full(f'{setting[0]}: {text_input}', all_settings['setting text color'], 'setting', topleft=current_settings_blits[setting_index][1].topleft)
                         else:
                             if event.key == quit_key:
                                 clean_exit()
@@ -1745,7 +1768,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
                                         setting_value = setting[1]
                                         typing = True
                                         text_input = f'{setting_value}'
-                                        current_settings_blits[setting_index] = create_text_blit_full_(f'{setting[0]}: {text_input}', all_settings['setting text color'], 'setting', topleft=current_settings_blits[setting_index][1].topleft)
+                                        current_settings_blits[setting_index] = _create_text_blit_full(f'{setting[0]}: {text_input}', all_settings['setting text color'], 'setting', topleft=current_settings_blits[setting_index][1].topleft)
 
                     if event.type == pygame.MOUSEMOTION:
                         # This type of nesting is used to save calculations. Only execute the next one if the previous passed.
@@ -1798,20 +1821,16 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
 
                     if event.key == move_up_key:
                         for snake_index in range(snakes_count):
-                            actions[snake_index].append(0)
-                            move(moves[snake_index][0], snake_index)
+                            init_move_buffer(0, snake_index)
                     elif event.key == move_left_key:
                         for snake_index in range(snakes_count):
-                            actions[snake_index].append(1)
-                            move(moves[snake_index][1], snake_index)
+                            init_move_buffer(1, snake_index)
                     elif event.key == move_down_key:
                         for snake_index in range(snakes_count):
-                            actions[snake_index].append(2)
-                            move(moves[snake_index][2], snake_index)
+                            init_move_buffer(2, snake_index)
                     elif event.key == move_right_key:
                         for snake_index in range(snakes_count):
-                            actions[snake_index].append(3)
-                            move(moves[snake_index][3], snake_index)
+                            init_move_buffer(3, snake_index)
                     elif event.key == open_settings_key:
                         settings_menu()
 
@@ -2167,7 +2186,7 @@ def main(info_queues: Optional[list[threading.Queue]] = None, commands_queue: Op
 
     texts = []
     for i in range(len(TEXT_SETTING_KEYS)):
-        texts.append(create_text_blit_(text_sentences[i], text_colors[i], scale_position_(all_settings[f'{TEXT_SETTING_KEYS[i]} text position']), TEXT_SETTING_KEYS[i] if i != 0 else ('lost' if all(crashes) else 'quit')))
+        texts.append(_create_text_blit(text_sentences[i], text_colors[i], scale_position_(all_settings[f'{TEXT_SETTING_KEYS[i]} text position']), TEXT_SETTING_KEYS[i] if i != 0 else ('lost' if all(crashes) else 'quit')))
 
 
     if all_settings['show last frame on end screen']:
